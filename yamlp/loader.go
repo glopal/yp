@@ -35,7 +35,7 @@ func LoadDir(dir string) (*Nodes, error) {
 			return err
 		}
 
-		if d.IsDir() || !IsYamlFile(path) || strings.HasPrefix(filepath.Base(path), "_") {
+		if d.IsDir() || !IsYamlFile(path) {
 			return nil
 		}
 
