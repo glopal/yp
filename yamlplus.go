@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 
-	_ "github.com/glopal/go-yamlplus/tags"
 	"github.com/glopal/go-yamlplus/yamlp"
 )
 

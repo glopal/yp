@@ -1,20 +1,19 @@
-package tags
+package yamlp
 
 import (
 	"container/list"
 	"fmt"
 
-	"github.com/glopal/go-yamlplus/yamlp"
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
 )
 
 func init() {
 	yqlib.InitExpressionParser()
 
-	yamlp.AddTagResolver("!yq", yqResolver)
+	AddTagResolver("!yq", yqResolver)
 }
 
-func yqResolver(n *yqlib.CandidateNode, nc yamlp.NodeContext, refs map[string]*yamlp.Node) (*yqlib.CandidateNode, error) {
+func yqResolver(n *yqlib.CandidateNode, nc NodeContext, refs map[string]*Node) (*yqlib.CandidateNode, error) {
 	inputCandidates := list.New()
 	inputCandidates.PushBack(n)
 
@@ -49,7 +48,7 @@ func yqResolver(n *yqlib.CandidateNode, nc yamlp.NodeContext, refs map[string]*y
 	return nn, nil
 }
 
-func refsToVariables(refs map[string]*yamlp.Node) map[string]*list.List {
+func refsToVariables(refs map[string]*Node) map[string]*list.List {
 	vars := map[string]*list.List{}
 
 	for ref, node := range refs {

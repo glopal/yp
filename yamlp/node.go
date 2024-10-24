@@ -30,7 +30,7 @@ func (n *Node) GetTagNodes() []*tagNode {
 
 func (n *Node) Resolve(refs map[string]*Node) error {
 	n.resolveCount += 1
-	
+
 	for _, tn := range n.GetTagNodes() {
 		nn, err := tagResolvers[tn.tag].Resolve(tn.candidateNode, n.NodeContext, refs)
 		if err != nil {

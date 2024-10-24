@@ -1,4 +1,4 @@
-package tags
+package yamlp
 
 import (
 	"errors"
@@ -6,21 +6,20 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/glopal/go-yamlplus/yamlp"
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
 )
 
 func init() {
-	yamlp.AddTagResolver("!inc/file", incFileResolver)
-	yamlp.AddTagResolver("!inc/file/flatten", incFileFlattenResolver)
-	yamlp.AddTagResolver("!inc/files", incFilesResolver, yqlib.SequenceNode)
+	AddTagResolver("!inc/file", incFileResolver)
+	AddTagResolver("!inc/file/flatten", incFileFlattenResolver)
+	AddTagResolver("!inc/files", incFilesResolver, yqlib.SequenceNode)
 }
 
-func incFileResolver(n *yqlib.CandidateNode, nc yamlp.NodeContext, refs map[string]*yamlp.Node) (*yqlib.CandidateNode, error) {
+func incFileResolver(n *yqlib.CandidateNode, nc NodeContext, refs map[string]*Node) (*yqlib.CandidateNode, error) {
 	return resolveFile(nc.Dir, n.Value)
 }
 
-func incFileFlattenResolver(n *yqlib.CandidateNode, nc yamlp.NodeContext, refs map[string]*yamlp.Node) (*yqlib.CandidateNode, error) {
+func incFileFlattenResolver(n *yqlib.CandidateNode, nc NodeContext, refs map[string]*Node) (*yqlib.CandidateNode, error) {
 	if n.Parent.Kind != yqlib.SequenceNode {
 		return nil, errors.New("!inc/file/flatten must be used inside a sequence")
 	}
@@ -50,7 +49,7 @@ func incFileFlattenResolver(n *yqlib.CandidateNode, nc yamlp.NodeContext, refs m
 
 }
 
-func incFilesResolver(n *yqlib.CandidateNode, nc yamlp.NodeContext, refs map[string]*yamlp.Node) (*yqlib.CandidateNode, error) {
+func incFilesResolver(n *yqlib.CandidateNode, nc NodeContext, refs map[string]*Node) (*yqlib.CandidateNode, error) {
 	for i, cn := range n.Content {
 		if cn.Tag != "!!str" {
 			return nil, fmt.Errorf("!!inc/files[%d] is not !!str (%s)", i, cn.Value)
@@ -79,7 +78,7 @@ func resolveFile(dir, relPath string) (*yqlib.CandidateNode, error) {
 		ymlFilePath = filepath.Join(dir, ymlFilePath)
 	}
 
-	ns, err := yamlp.LoadFile(ymlFilePath)
+	ns, err := LoadFile(ymlFilePath)
 	if err != nil {
 		return nil, err
 	}
