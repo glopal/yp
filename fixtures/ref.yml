@@ -1,0 +1,11 @@
+--- #ref/ctx
+env: !yq $env.env
+app_name: example
+--- #ref/env
+env: !inc/file includes/_env.yml
+--- #ref/seq
+- 1
+- 2
+- 3
+--- #ref/app_name
+!inc/file includes/_appname.yml

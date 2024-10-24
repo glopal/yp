@@ -1,0 +1,7 @@
+name: a1
+yqval: !yq 'parent | .name'
+---
+name: a2
+val: !val bla
+nums: !inc/file includes/_partial.yml
+blank: !inc/file includes/_empty.yml

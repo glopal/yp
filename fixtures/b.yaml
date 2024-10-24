@@ -1,0 +1,22 @@
+name: !yq $app_name
+env: !yq $ctx.env
+extra: !inc/files 
+  - includes/_map.yaml
+  - includes/_partial.yml
+flat:
+  - 1
+  - 2
+  - !inc/file/flatten includes/_partial.yml
+  - ==
+  - !inc/file/flatten includes/_partial.yml
+  - ==
+  - ==
+  - 
+    - 1
+    - 2
+    - !inc/file/flatten includes/_partial.yml
+    - !inc/file/flatten includes/_partial.yml
+  - !inc/file/flatten includes/_partial.yml
+
+
+
