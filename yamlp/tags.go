@@ -1,6 +1,8 @@
 package yamlp
 
 import (
+	"strings"
+
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
 )
 
@@ -11,7 +13,13 @@ type TagResolver struct {
 	Resolve     ResolveFunc
 }
 
-type ResolveFunc func(*yqlib.CandidateNode, NodeContext, map[string]*Node) (*yqlib.CandidateNode, error)
+type ResolveFunc func(ResolveContext) (*yqlib.CandidateNode, error)
+
+type ResolveContext struct {
+	Target *yqlib.CandidateNode
+	Node   *Node
+	Refs   map[string]*Node
+}
 
 func AddTagResolver(tag string, resolver ResolveFunc, allowedKinds ...yqlib.Kind) {
 	var allowedKind yqlib.Kind
@@ -22,7 +30,7 @@ func AddTagResolver(tag string, resolver ResolveFunc, allowedKinds ...yqlib.Kind
 	if allowedKind == 0 {
 		allowedKind = yqlib.ScalarNode
 	}
-	tagResolvers[tag] = TagResolver{
+	tagResolvers[cleanTag(tag)] = TagResolver{
 		AllowedKind: allowedKind,
 		Resolve:     resolver,
 	}
@@ -34,8 +42,9 @@ type tagNode struct {
 }
 
 func getTagNodes(node *yqlib.CandidateNode) []*tagNode {
-	if resolver, exists := tagResolvers[node.Tag]; exists && node.Kind&resolver.AllowedKind > 0 {
-		return []*tagNode{{node.Tag, node}}
+	tag := cleanTag(node.Tag)
+	if resolver, exists := tagResolvers[tag]; exists && node.Kind&resolver.AllowedKind > 0 {
+		return []*tagNode{{tag, node}}
 	}
 
 	tagNodes := []*tagNode{}
@@ -47,4 +56,8 @@ func getTagNodes(node *yqlib.CandidateNode) []*tagNode {
 	}
 
 	return tagNodes
+}
+
+func cleanTag(tag string) string {
+	return strings.TrimLeft(tag, "!")
 }

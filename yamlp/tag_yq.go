@@ -13,16 +13,17 @@ func init() {
 	AddTagResolver("!yq", yqResolver)
 }
 
-func yqResolver(n *yqlib.CandidateNode, nc NodeContext, refs map[string]*Node) (*yqlib.CandidateNode, error) {
+func yqResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
+	fmt.Println(rc.Target.GetPath())
 	inputCandidates := list.New()
-	inputCandidates.PushBack(n)
+	inputCandidates.PushBack(rc.Target)
 
 	yqctx := yqlib.Context{
 		MatchingNodes: inputCandidates,
-		Variables:     refsToVariables(refs),
+		Variables:     createVariables(rc.Node.CandidateNode, rc.Refs),
 	}
 
-	expr, err := yqlib.ExpressionParser.ParseExpression(n.Value)
+	expr, err := yqlib.ExpressionParser.ParseExpression(rc.Target.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -42,13 +43,13 @@ func yqResolver(n *yqlib.CandidateNode, nc NodeContext, refs map[string]*Node) (
 
 	nn, ok := context.MatchingNodes.Front().Value.(*yqlib.CandidateNode)
 	if !ok {
-		return nil, fmt.Errorf("yq expression error (%s): failed to marshal CandidateNode", n.Value)
+		return nil, fmt.Errorf("yq expression error (%s): failed to marshal CandidateNode", rc.Target.Value)
 	}
 
 	return nn, nil
 }
 
-func refsToVariables(refs map[string]*Node) map[string]*list.List {
+func createVariables(root *yqlib.CandidateNode, refs map[string]*Node) map[string]*list.List {
 	vars := map[string]*list.List{}
 
 	for ref, node := range refs {
@@ -61,6 +62,11 @@ func refsToVariables(refs map[string]*Node) map[string]*list.List {
 
 		vars[ref] = l
 	}
+
+	l := list.New()
+	l.PushBack(root)
+
+	vars["_"] = l
 
 	return vars
 }

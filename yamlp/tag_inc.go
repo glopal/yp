@@ -15,18 +15,18 @@ func init() {
 	AddTagResolver("!inc/files", incFilesResolver, yqlib.SequenceNode)
 }
 
-func incFileResolver(n *yqlib.CandidateNode, nc NodeContext, refs map[string]*Node) (*yqlib.CandidateNode, error) {
-	return resolveFile(nc.Dir, n.Value)
+func incFileResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
+	return resolveFile(rc.Node.NodeContext.Dir, rc.Target.Value)
 }
 
-func incFileFlattenResolver(n *yqlib.CandidateNode, nc NodeContext, refs map[string]*Node) (*yqlib.CandidateNode, error) {
-	if n.Parent.Kind != yqlib.SequenceNode {
+func incFileFlattenResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
+	if rc.Target.Parent.Kind != yqlib.SequenceNode {
 		return nil, errors.New("!inc/file/flatten must be used inside a sequence")
 	}
 
-	index, _ := strconv.Atoi(n.Key.Value)
+	index, _ := strconv.Atoi(rc.Target.Key.Value)
 
-	nn, err := resolveFile(nc.Dir, n.Value)
+	nn, err := resolveFile(rc.Node.NodeContext.Dir, rc.Target.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -35,39 +35,39 @@ func incFileFlattenResolver(n *yqlib.CandidateNode, nc NodeContext, refs map[str
 		return nil, errors.New("!inc/file/flatten must return a sequence")
 	}
 
-	contents := make([]*yqlib.CandidateNode, 0, len(n.Parent.Content)+len(nn.Content)-1)
-	contents = append(contents, n.Parent.Content[:index]...)
+	contents := make([]*yqlib.CandidateNode, 0, len(rc.Target.Parent.Content)+len(nn.Content)-1)
+	contents = append(contents, rc.Target.Parent.Content[:index]...)
 	contents = append(contents, nn.Content...)
-	contents = append(contents, n.Parent.Content[index+1:]...)
+	contents = append(contents, rc.Target.Parent.Content[index+1:]...)
 
 	for i, c := range contents {
 		c.Key.Value = fmt.Sprintf("%v", i)
 	}
 
-	n.Parent.Content = contents
+	rc.Target.Parent.Content = contents
 	return nn.Content[0], nil
 
 }
 
-func incFilesResolver(n *yqlib.CandidateNode, nc NodeContext, refs map[string]*Node) (*yqlib.CandidateNode, error) {
-	for i, cn := range n.Content {
+func incFilesResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
+	for i, cn := range rc.Target.Content {
 		if cn.Tag != "!!str" {
 			return nil, fmt.Errorf("!!inc/files[%d] is not !!str (%s)", i, cn.Value)
 		}
 
-		nn, err := resolveFile(nc.Dir, cn.Value)
+		nn, err := resolveFile(rc.Node.NodeContext.Dir, cn.Value)
 		if err != nil {
 			return nil, err
 		}
 
-		n.Content[i] = nn
+		rc.Target.Content[i] = nn
 
 	}
 
-	n.Style = 0
-	n.Tag = "!!seq"
+	rc.Target.Style = 0
+	rc.Target.Tag = "!!seq"
 
-	return n, nil
+	return rc.Target, nil
 }
 
 func resolveFile(dir, relPath string) (*yqlib.CandidateNode, error) {

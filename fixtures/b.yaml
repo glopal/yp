@@ -1,5 +1,7 @@
+desc: !!tmpl 'RECURSE: {{.ctx.recurse}} APP: {{ .app_name }}, ENV: {{ .ctx.env }}'
 name: !yq $app_name
 env: !yq $ctx.env
+local: !yq $_.static
 extra: !inc/files 
   - includes/_map.yaml
   - includes/_partial.yml
@@ -17,6 +19,8 @@ flat:
     - !inc/file/flatten includes/_partial.yml
     - !inc/file/flatten includes/_partial.yml
   - !inc/file/flatten includes/_partial.yml
+static:
+  foo: !yq $_.env
 
 
 

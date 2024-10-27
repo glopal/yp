@@ -17,11 +17,14 @@ const (
 type Node struct {
 	CandidateNode *yqlib.CandidateNode
 	NodeContext   NodeContext
+	decoded       interface{}
 	resolveCount  int
 }
 
 type NodeContext struct {
-	Dir string
+	Dir   string
+	Name  string
+	IsRef bool
 }
 
 func (n *Node) GetTagNodes() []*tagNode {
@@ -32,7 +35,11 @@ func (n *Node) Resolve(refs map[string]*Node) error {
 	n.resolveCount += 1
 
 	for _, tn := range n.GetTagNodes() {
-		nn, err := tagResolvers[tn.tag].Resolve(tn.candidateNode, n.NodeContext, refs)
+		nn, err := tagResolvers[tn.tag].Resolve(ResolveContext{
+			Target: tn.candidateNode,
+			Node:   n,
+			Refs:   refs,
+		})
 		if err != nil {
 			return err
 		}
@@ -41,6 +48,52 @@ func (n *Node) Resolve(refs map[string]*Node) error {
 	}
 
 	return nil
+}
+
+func (n *Node) ResolveAfter(path string, refs map[string]*Node) error {
+	pathIndex := 0
+	tagNodes := n.GetTagNodes()
+
+	for i, tn := range tagNodes {
+		if tn.candidateNode.GetNicePath() == path {
+			pathIndex = i
+			break
+		}
+	}
+	for _, tn := range tagNodes[pathIndex:] {
+		nn, err := tagResolvers[tn.tag].Resolve(ResolveContext{
+			Target: tn.candidateNode,
+			Node:   n,
+			Refs:   refs,
+		})
+		if err != nil {
+			return err
+		}
+
+		*tn.candidateNode = *nn
+	}
+
+	return nil
+}
+
+func (n *Node) Interface() (interface{}, error) {
+	if n.decoded != nil {
+		return n.decoded, nil
+	}
+
+	yn, err := n.CandidateNode.MarshalYAML()
+	if err != nil {
+		return nil, err
+	}
+	var i interface{}
+	err = yn.Decode(&i)
+	if err != nil {
+		return nil, err
+	}
+
+	n.decoded = i
+
+	return i, nil
 }
 
 func (n *Node) GetResolveCount() int {

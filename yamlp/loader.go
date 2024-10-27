@@ -28,14 +28,19 @@ func init() {
 	yqlib.GetLogger().SetBackend(leveled)
 }
 
-func LoadDir(dir string) (*Nodes, error) {
+func LoadDir(dir string, opts ...func(*loadOptions)) (*Nodes, error) {
+	options := defaultLoadOptions()
+	for _, o := range opts {
+		o(options)
+	}
+
 	nodes := NewNodes()
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if d.IsDir() || !IsYamlFile(path) {
+		if d.IsDir() || !IsYamlFile(path) || options.omitFunc(path) {
 			return nil
 		}
 
@@ -75,11 +80,14 @@ func LoadFile(file string) (*Nodes, error) {
 			n := &Node{
 				CandidateNode: node,
 				NodeContext: NodeContext{
-					Dir: filepath.Dir(file),
+					Dir:  filepath.Dir(file),
+					Name: strings.TrimSuffix(filepath.Base(file), filepath.Ext(file)),
 				},
 			}
 
 			if ref := parseRef(node.HeadComment); ref != "" {
+				n.NodeContext.IsRef = true
+				n.NodeContext.Name = ref
 				nodes.refs[ref] = n
 			} else {
 				nodes.nodes = append(nodes.nodes, n)

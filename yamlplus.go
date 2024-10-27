@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	nodes, err := yamlp.LoadDir("./fixtures")
+	nodes, err := yamlp.LoadDir("./fixtures", yamlp.OmitLeadingUnderscore())
 	if err != nil {
 		panic(err)
 	}

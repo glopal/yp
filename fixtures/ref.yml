@@ -1,5 +1,7 @@
 --- #ref/ctx
 env: !yq $env.env
+recurse: !tmpl '{{.ctx.static}}'
+static: SUCCESS!
 app_name: example
 --- #ref/env
 env: !inc/file includes/_env.yml
