@@ -2,6 +2,7 @@ package yamlp
 
 import (
 	"container/list"
+	"errors"
 	"fmt"
 
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
@@ -14,26 +15,22 @@ func init() {
 }
 
 func yqResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
-	fmt.Println(rc.Target.GetPath())
-	inputCandidates := list.New()
-	inputCandidates.PushBack(rc.Target)
-
-	yqctx := yqlib.Context{
-		MatchingNodes: inputCandidates,
-		Variables:     createVariables(rc.Node.CandidateNode, rc.Refs),
-	}
-
 	expr, err := yqlib.ExpressionParser.ParseExpression(rc.Target.Value)
 	if err != nil {
 		return nil, err
 	}
 
-	context, err := yqlib.NewDataTreeNavigator().GetMatchingNodes(yqctx, expr)
+	context, err := yqlib.NewDataTreeNavigator().GetMatchingNodes(createContext(rc), expr)
 	if err != nil {
 		return nil, err
 	}
 
 	if context.MatchingNodes.Len() == 0 {
+		if rc.Node.IsRef() {
+			fmt.Println(rc.Node.Kind.String(), rc.Node.File)
+			return nil, errors.New("Unable to resolve")
+		}
+
 		return &yqlib.CandidateNode{
 			Kind:  yqlib.ScalarNode,
 			Style: yqlib.DoubleQuotedStyle,
@@ -49,24 +46,27 @@ func yqResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
 	return nn, nil
 }
 
-func createVariables(root *yqlib.CandidateNode, refs map[string]*Node) map[string]*list.List {
+func createContext(rc ResolveContext) yqlib.Context {
+	inputCandidates := list.New()
+	inputCandidates.PushBack(rc.Ctx.candidateNode)
+
+	return yqlib.Context{
+		MatchingNodes: inputCandidates,
+		Variables:     createVariables(rc),
+	}
+}
+
+func createVariables(rc ResolveContext) map[string]*list.List {
 	vars := map[string]*list.List{}
 
-	for ref, node := range refs {
-		if node.GetResolveCount() == 0 {
-			node.Resolve(refs)
-		}
-
-		l := list.New()
-		l.PushBack(node.CandidateNode)
-
-		vars[ref] = l
-	}
-
 	l := list.New()
-	l.PushBack(root)
+	l.PushBack(&yqlib.CandidateNode{
+		Kind:  yqlib.ScalarNode,
+		Tag:   "!!str",
+		Value: rc.Node.Dir,
+	})
 
-	vars["_"] = l
+	vars["DIR"] = l
 
 	return vars
 }

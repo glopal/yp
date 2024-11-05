@@ -16,9 +16,10 @@ type TagResolver struct {
 type ResolveFunc func(ResolveContext) (*yqlib.CandidateNode, error)
 
 type ResolveContext struct {
-	Target *yqlib.CandidateNode
-	Node   *Node
-	Refs   map[string]*Node
+	Target  *yqlib.CandidateNode
+	Ctx     *ContextNode
+	Node    *Node
+	Imports map[string]*Node
 }
 
 func AddTagResolver(tag string, resolver ResolveFunc, allowedKinds ...yqlib.Kind) {

@@ -1,0 +1,7 @@
+--- #ref
+num: 9
+--- #ref
+name: bbb
+num: !yq .num
+--- #export/bbb
+!yq .

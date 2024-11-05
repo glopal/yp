@@ -24,3 +24,11 @@ func OmitLeadingUnderscore() func(*loadOptions) {
 		}
 	}
 }
+
+func OmitDotFiles() func(*loadOptions) {
+	return func(lo *loadOptions) {
+		lo.omitFunc = func(path string) bool {
+			return strings.HasPrefix(filepath.Base(path), ".")
+		}
+	}
+}

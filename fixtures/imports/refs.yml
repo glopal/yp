@@ -1,0 +1,18 @@
+--- #ref/aa
+!import z
+--- #ref/bb
+!import bbb
+--- #export/a
+a: !yq $num
+bb: !yq $bb
+--- #ref/num
+!yq $aa.val
+---
+!yq $e
+--- #export/b
+a: !import a
+z: !import z
+--- #export/bbb
+!yq $bbb
+--- #ref/bbb
+bbb

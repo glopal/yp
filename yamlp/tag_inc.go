@@ -16,7 +16,7 @@ func init() {
 }
 
 func incFileResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
-	return resolveFile(rc.Node.NodeContext.Dir, rc.Target.Value)
+	return resolveFile(rc.Node.Dir, rc.Target.Value, rc)
 }
 
 func incFileFlattenResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
@@ -26,7 +26,7 @@ func incFileFlattenResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
 
 	index, _ := strconv.Atoi(rc.Target.Key.Value)
 
-	nn, err := resolveFile(rc.Node.NodeContext.Dir, rc.Target.Value)
+	nn, err := resolveFile(rc.Node.Dir, rc.Target.Value, rc)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func incFilesResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
 			return nil, fmt.Errorf("!!inc/files[%d] is not !!str (%s)", i, cn.Value)
 		}
 
-		nn, err := resolveFile(rc.Node.NodeContext.Dir, cn.Value)
+		nn, err := resolveFile(rc.Node.Dir, cn.Value, rc)
 		if err != nil {
 			return nil, err
 		}
@@ -70,9 +70,11 @@ func incFilesResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
 	return rc.Target, nil
 }
 
-func resolveFile(dir, relPath string) (*yqlib.CandidateNode, error) {
-	var err error
-	ymlFilePath := relPath
+func resolveFile(dir, relPath string, rc ResolveContext) (*yqlib.CandidateNode, error) {
+	ymlFilePath, err := renderTemplate(relPath, rc.Ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	if !filepath.IsAbs(ymlFilePath) {
 		ymlFilePath = filepath.Join(dir, ymlFilePath)
@@ -95,6 +97,11 @@ func resolveFile(dir, relPath string) (*yqlib.CandidateNode, error) {
 			Style: yqlib.DoubleQuotedStyle,
 			Tag:   "!!str",
 		}, nil
+	}
+
+	err = nodes[0].Resolve(rc.Ctx, nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return nodes[0].CandidateNode, nil

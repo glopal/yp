@@ -6,11 +6,15 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
 	"gopkg.in/op/go-logging.v1"
 )
+
+type NamedReader interface {
+	io.Reader
+	Name() string
+}
 
 var decoder = yqlib.NewYamlDecoder(yqlib.YamlPreferences{
 	Indent:                      2,
@@ -34,7 +38,8 @@ func LoadDir(dir string, opts ...func(*loadOptions)) (*Nodes, error) {
 		o(options)
 	}
 
-	nodes := NewNodes()
+	files := []NamedReader{}
+
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -44,17 +49,26 @@ func LoadDir(dir string, opts ...func(*loadOptions)) (*Nodes, error) {
 			return nil
 		}
 
-		n, err := LoadFile(path)
+		f, err := os.Open(path)
 		if err != nil {
 			return err
 		}
 
-		nodes.Append(n)
+		files = append(files, f)
+		// n, err := LoadFile(path)
+		// if err != nil {
+		// 	return err
+		// }
+
+		// nodes.Append(n)
 
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return nodes, err
+	return Load(files...)
 }
 
 func LoadFile(file string) (*Nodes, error) {
@@ -63,41 +77,33 @@ func LoadFile(file string) (*Nodes, error) {
 		return nil, err
 	}
 
+	return Load(f)
+}
+
+func Load(files ...NamedReader) (*Nodes, error) {
 	nodes := NewNodes()
 
-	err = decoder.Init(f)
-	if err != nil {
-		return nil, err
-	}
-
-	for {
-		node, err := decoder.Decode()
-
-		// check it was parsed
-		if err == nil {
-			fixHeadComment(node)
-
-			n := &Node{
-				CandidateNode: node,
-				NodeContext: NodeContext{
-					Dir:  filepath.Dir(file),
-					Name: strings.TrimSuffix(filepath.Base(file), filepath.Ext(file)),
-				},
-			}
-
-			if ref := parseRef(node.HeadComment); ref != "" {
-				n.NodeContext.IsRef = true
-				n.NodeContext.Name = ref
-				nodes.refs[ref] = n
-			} else {
-				nodes.nodes = append(nodes.nodes, n)
-			}
-
-			continue
+	for _, f := range files {
+		err := decoder.Init(f)
+		if err != nil {
+			return nil, err
 		}
-		// break the loop in case of EOF
-		if errors.Is(err, io.EOF) {
-			break
+
+		for {
+			node, err := decoder.Decode()
+			if err != nil {
+				// break the loop in case of EOF
+				if errors.Is(err, io.EOF) {
+					break
+				} else {
+					return nil, err
+				}
+			}
+
+			err = nodes.Push(NewNode(node, f.Name()))
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -107,29 +113,4 @@ func LoadFile(file string) (*Nodes, error) {
 func IsYamlFile(file string) bool {
 	ext := filepath.Ext(file)
 	return ext == ".yml" || ext == ".yaml"
-}
-
-// required due to bug in yaml.v3 module
-// https://github.com/go-yaml/yaml/issues/801
-func fixHeadComment(n *yqlib.CandidateNode) {
-	if n.HeadComment != "" {
-		return
-	}
-
-	if len(n.Content) > 0 {
-		n.HeadComment = n.Content[0].HeadComment
-	}
-}
-
-func parseRef(headComment string) string {
-	if headComment == "" || !strings.HasPrefix(strings.TrimLeft(headComment, "# "), "ref/") {
-		return ""
-	}
-
-	tokens := strings.Split(headComment, "/")
-	if len(tokens) != 2 {
-		return ""
-	}
-
-	return tokens[1]
 }

@@ -14,3 +14,6 @@ func TestLoadGlob(t *testing.T) {
 		t.Fatalf("expected %d nodes, got %d", expectedLen, actualLen)
 	}
 }
+
+// expect errors
+// - refs need to come before exports in file

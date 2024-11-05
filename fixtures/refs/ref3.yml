@@ -1,0 +1,5 @@
+--- #ref
+!import two
+--- #export/a
+name: a
+val: !yq .

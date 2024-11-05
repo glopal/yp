@@ -1,0 +1,8 @@
+--- #ref/one
+a: 1
+b: 2
+c: 3
+--- #ref/two
+one: !yq $one.a
+---
+!yq $two

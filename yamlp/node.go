@@ -1,7 +1,10 @@
 package yamlp
 
 import (
+	"io"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
 )
@@ -15,65 +18,69 @@ const (
 )
 
 type Node struct {
+	Dir           string
+	File          string
+	Name          string
+	Kind          DocKind
 	CandidateNode *yqlib.CandidateNode
-	NodeContext   NodeContext
 	decoded       interface{}
 	resolveCount  int
+	resolved      bool
+	tagNodes      []*tagNode
 }
 
-type NodeContext struct {
-	Dir   string
-	Name  string
-	IsRef bool
+func NewNode(cn *yqlib.CandidateNode, file string) *Node {
+	n := &Node{
+		Dir:           filepath.Dir(file),
+		File:          file,
+		Name:          strings.TrimSuffix(filepath.Base(file), filepath.Ext(file)),
+		CandidateNode: cn,
+		tagNodes:      getTagNodes(cn),
+	}
+
+	doc := determineDoc(cn)
+	n.Kind = doc.Kind
+
+	if n.Kind&(Ref|Export) > 0 {
+		n.Name = doc.Val
+	}
+
+	return n
 }
 
-func (n *Node) GetTagNodes() []*tagNode {
-	return getTagNodes(n.CandidateNode)
-}
-
-func (n *Node) Resolve(refs map[string]*Node) error {
+func (n *Node) Resolve(ctx *ContextNode, exports map[string]*Node) error {
 	n.resolveCount += 1
 
-	for _, tn := range n.GetTagNodes() {
+	for _, tn := range n.tagNodes {
 		nn, err := tagResolvers[tn.tag].Resolve(ResolveContext{
-			Target: tn.candidateNode,
-			Node:   n,
-			Refs:   refs,
+			Target:  tn.candidateNode,
+			Ctx:     ctx,
+			Node:    n,
+			Imports: exports,
 		})
 		if err != nil {
 			return err
 		}
 
-		*tn.candidateNode = *nn
+		if nn != nil {
+			*tn.candidateNode = *nn
+		}
 	}
+
+	n.resolved = true
 
 	return nil
 }
 
-func (n *Node) ResolveAfter(path string, refs map[string]*Node) error {
-	pathIndex := 0
-	tagNodes := n.GetTagNodes()
-
-	for i, tn := range tagNodes {
-		if tn.candidateNode.GetNicePath() == path {
-			pathIndex = i
-			break
+func (n *Node) GetImports() []string {
+	imports := []string{}
+	for _, tn := range n.tagNodes {
+		if tn.tag == "import" {
+			imports = append(imports, tn.candidateNode.Value)
 		}
 	}
-	for _, tn := range tagNodes[pathIndex:] {
-		nn, err := tagResolvers[tn.tag].Resolve(ResolveContext{
-			Target: tn.candidateNode,
-			Node:   n,
-			Refs:   refs,
-		})
-		if err != nil {
-			return err
-		}
 
-		*tn.candidateNode = *nn
-	}
-
-	return nil
+	return imports
 }
 
 func (n *Node) Interface() (interface{}, error) {
@@ -96,15 +103,33 @@ func (n *Node) Interface() (interface{}, error) {
 	return i, nil
 }
 
+func (n *Node) IsRef() bool {
+	return n.Kind == Ref
+}
+func (n *Node) IsExport() bool {
+	return n.Kind == Export
+}
+func (n *Node) IsRefOrExport() bool {
+	return n.Kind&(Ref|Export) > 0
+}
+
+func (n *Node) IsResolved() bool {
+	return n.resolved
+}
+
+func (n *Node) ID() string {
+	return n.Kind.String() + "/" + n.Name
+}
+
 func (n *Node) GetResolveCount() int {
 	return n.resolveCount
 }
 
-func (n *Node) PrettyPrintYaml(w *os.File) {
+func (n *Node) PrettyPrintYaml(w io.Writer) {
 	prefs := yqlib.NewDefaultYamlPreferences()
 	prefs.UnwrapScalar = false
 	prefs.ColorsEnabled = shouldColorize()
-	prefs.Indent = 4
+	prefs.Indent = 2
 	printer := yqlib.NewPrinter(yqlib.NewYamlEncoder(prefs), yqlib.NewSinglePrinterWriter(w))
 
 	list, err := yqlib.NewAllAtOnceEvaluator().EvaluateNodes(".", n.CandidateNode)
@@ -124,38 +149,3 @@ func shouldColorize() bool {
 
 	return colorsEnabled
 }
-
-// func deepCopyNode(node *yqlib.CandidateNode, cache map[*yqlib.CandidateNode]*yqlib.CandidateNode) *yqlib.CandidateNode {
-// 	if n, ok := cache[node]; ok {
-// 		return n
-// 	}
-// 	if cache == nil {
-// 		cache = make(map[*yqlib.CandidateNode]*yqlib.CandidateNode)
-// 	}
-// 	copy := *node
-// 	cache[node] = &copy
-// 	copy.Content = nil
-// 	for _, elem := range node.Content {
-// 		copy.Content = append(copy.Content, deepCopyNode(elem, cache))
-// 	}
-// 	if node.Alias != nil {
-// 		copy.Alias = deepCopyNode(node.Alias, cache)
-// 	}
-// 	return &copy
-// }
-
-// func (n *Node) getNodesByTag(node *yqlib.CandidateNode, tag string, allowedKinds Kind) []*yaml.Node {
-// 	if node.Kind == yaml.ScalarNode && node.Tag == tag {
-// 		return []*yaml.Node{node}
-// 	}
-
-// 	scalarNodes := []*yaml.Node{}
-
-// 	if node.Kind <= yaml.MappingNode {
-// 		for _, n := range node.Content {
-// 			scalarNodes = append(scalarNodes, getScalarNodesByTag(n, tag)...)
-// 		}
-// 	}
-
-// 	return scalarNodes
-// }

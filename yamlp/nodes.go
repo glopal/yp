@@ -1,24 +1,21 @@
 package yamlp
 
-import "os"
+import (
+	"io"
+)
 
 type Nodes struct {
-	nodes []*Node
-	refs  map[string]*Node
+	nodes   []*Node
+	exports Exports
 }
 
 func NewNodes() *Nodes {
 	return &Nodes{
 		nodes: make([]*Node, 0),
-		refs:  map[string]*Node{},
-	}
-}
-
-func (ns *Nodes) Append(n *Nodes) {
-	ns.nodes = append(ns.nodes, n.nodes...)
-
-	for k, v := range n.refs {
-		ns.refs[k] = v
+		exports: Exports{
+			files:   map[string]*exportFile{},
+			exports: map[string]*Node{},
+		},
 	}
 }
 
@@ -26,18 +23,24 @@ func (ns *Nodes) Nodes() []*Node {
 	return ns.nodes
 }
 
-func (ns *Nodes) Resolve() error {
-	var err error
+func (ns *Nodes) Push(n *Node) error {
+	if n.IsRefOrExport() {
+		return ns.exports.Push(n)
+	} else {
+		ns.nodes = append(ns.nodes, n)
+	}
 
-	// for _, n := range ns.refs {
-	// 	err = n.Resolve(ns.refs)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
+	return nil
+}
+
+func (ns *Nodes) Resolve() error {
+	exports, err := ns.exports.resolve()
+	if err != nil {
+		return err
+	}
 
 	for _, n := range ns.nodes {
-		err = n.Resolve(ns.refs)
+		err = n.Resolve(exports, nil)
 		if err != nil {
 			return err
 		}
@@ -46,7 +49,28 @@ func (ns *Nodes) Resolve() error {
 	return nil
 }
 
-func (ns *Nodes) PrettyPrintYaml(w *os.File) {
+func mergeRefs(refs map[string]*Node, exports map[string]*Node) map[string]*Node {
+	merged := map[string]*Node{}
+
+	for k, v := range refs {
+		merged[k] = v
+	}
+	for k, v := range exports {
+		merged[k] = v
+	}
+
+	return merged
+}
+
+// func (ns *Nodes) getRefExportOrder() {
+// 	for _, refs := range ns.refs {
+// 		for name, ref := range refs {
+// 			ref.GetImports()
+// 		}
+// 	}
+// }
+
+func (ns *Nodes) PrettyPrintYaml(w io.Writer) {
 	for _, n := range ns.nodes {
 		w.Write([]byte("---\n"))
 		n.PrettyPrintYaml(w)
