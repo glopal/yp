@@ -83,6 +83,15 @@ func (n *Node) GetImports() []string {
 	return imports
 }
 
+func (n *Node) CopyAttr() *Node {
+	return &Node{
+		Dir:  n.Dir,
+		File: n.File,
+		Name: n.Name,
+		Kind: n.Kind,
+	}
+}
+
 func (n *Node) Interface() (interface{}, error) {
 	if n.decoded != nil {
 		return n.decoded, nil
@@ -110,7 +119,7 @@ func (n *Node) IsExport() bool {
 	return n.Kind == Export
 }
 func (n *Node) IsRefOrExport() bool {
-	return n.Kind&(Ref|Export) > 0
+	return n.Kind&(Ref|Refs|Export) > 0
 }
 
 func (n *Node) IsResolved() bool {

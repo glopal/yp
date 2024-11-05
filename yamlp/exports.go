@@ -51,6 +51,8 @@ func (e Exports) Push(n *Node) error {
 	switch n.Kind {
 	case Ref:
 		return e.pushRef(n)
+	case Refs:
+		return e.pushRefs(n)
 	case Export:
 		return e.pushExport(n)
 	}
@@ -67,6 +69,26 @@ func (e Exports) pushRef(n *Node) error {
 	}
 
 	e.files[n.File].refs = append(e.files[n.File].refs, n)
+
+	return nil
+}
+
+func (e Exports) pushRefs(n *Node) error {
+	if n.CandidateNode.Kind != yqlib.SequenceNode {
+		return errors.New("#ref[] docs must be a sequence")
+	}
+
+	for _, elem := range n.CandidateNode.Content {
+		nn := n.CopyAttr()
+		nn.Kind = Ref
+		nn.CandidateNode = elem
+		nn.tagNodes = getTagNodes(elem)
+
+		err := e.pushRef(nn)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

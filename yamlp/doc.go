@@ -11,6 +11,7 @@ type DocKind uint32
 const (
 	Plain DocKind = 1 << iota
 	Ref
+	Refs
 	Export
 )
 
@@ -20,6 +21,8 @@ func (dk DocKind) String() string {
 		return "plain"
 	case Ref:
 		return "ref"
+	case Refs:
+		return "ref[]"
 	case Export:
 		return "export"
 	default:
@@ -58,6 +61,8 @@ func determineDoc(n *yqlib.CandidateNode) Doc {
 	switch kind {
 	case "ref":
 		doc.Kind = Ref
+	case "ref[]":
+		doc.Kind = Refs
 	case "export":
 		doc.Kind = Export
 		if len(tokens) == 2 {
