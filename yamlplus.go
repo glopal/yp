@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/glopal/go-yamlplus/yamlp"
+	"github.com/glopal/yamlplus/yamlp"
 )
 
 func main() {

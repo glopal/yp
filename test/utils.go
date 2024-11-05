@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/glopal/go-yamlplus/yamlp"
+	"github.com/glopal/yamlplus/yamlp"
 )
 
 type MockFile struct {

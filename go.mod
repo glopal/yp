@@ -1,4 +1,4 @@
-module github.com/glopal/go-yamlplus
+module github.com/glopal/yamlplus
 
 go 1.23.1
 

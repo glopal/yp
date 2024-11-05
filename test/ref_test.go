@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	approvals "github.com/approvals/go-approval-tests"
-	"github.com/glopal/go-yamlplus/yamlp"
+	"github.com/glopal/yamlplus/yamlp"
 )
 
 func TestMain(m *testing.M) {
