@@ -24,7 +24,6 @@ type Node struct {
 	Kind          DocKind
 	CandidateNode *yqlib.CandidateNode
 	decoded       interface{}
-	resolveCount  int
 	resolved      bool
 	tagNodes      []*tagNode
 }
@@ -49,8 +48,6 @@ func NewNode(cn *yqlib.CandidateNode, file string) *Node {
 }
 
 func (n *Node) Resolve(ctx *ContextNode, exports map[string]*Node) error {
-	n.resolveCount += 1
-
 	for _, tn := range n.tagNodes {
 		nn, err := tagResolvers[tn.tag].Resolve(ResolveContext{
 			Target:  tn.candidateNode,
@@ -128,10 +125,6 @@ func (n *Node) IsResolved() bool {
 
 func (n *Node) ID() string {
 	return n.Kind.String() + "/" + n.Name
-}
-
-func (n *Node) GetResolveCount() int {
-	return n.resolveCount
 }
 
 func (n *Node) PrettyPrintYaml(w io.Writer) {

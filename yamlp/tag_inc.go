@@ -71,24 +71,27 @@ func incFilesResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
 }
 
 func resolveFile(dir, relPath string, rc ResolveContext) (*yqlib.CandidateNode, error) {
-	ymlFilePath, err := renderTemplate(relPath, rc.Ctx)
+	path, err := renderTemplate(relPath, rc.Ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if !filepath.IsAbs(ymlFilePath) {
-		ymlFilePath = filepath.Join(dir, ymlFilePath)
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(dir, path)
 	}
 
-	ns, err := LoadFile(ymlFilePath)
+	ns, err := LoadFile(path)
 	if err != nil {
-		return nil, err
+		return &yqlib.CandidateNode{
+			Kind: yqlib.ScalarNode,
+			Tag:  "!!null",
+		}, nil
 	}
 
 	nodes := ns.Nodes()
 
 	if len(nodes) > 1 {
-		return nil, fmt.Errorf("multi-doc yaml files cannot be included (%s)", ymlFilePath)
+		return nil, fmt.Errorf("multi-doc yaml files cannot be included (%s)", path)
 	}
 
 	if len(nodes) == 0 {
