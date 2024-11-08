@@ -11,10 +11,10 @@ func init() {
 }
 
 func importResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
-	n, exists := rc.Imports[rc.Target.Value]
+	n, exists := rc.Vars[rc.Target.Value]
 	if !exists {
 		return nil, fmt.Errorf("failed to import '%s': not found", rc.Target.Value)
 	}
 
-	return n.CandidateNode, nil
+	return n.candidateNode, nil
 }

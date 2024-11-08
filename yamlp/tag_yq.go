@@ -68,5 +68,11 @@ func createVariables(rc ResolveContext) map[string]*list.List {
 
 	vars["DIR"] = l
 
+	for name, node := range rc.Vars {
+		l := list.New()
+		l.PushBack(node.candidateNode)
+		vars[name] = l
+	}
+
 	return vars
 }

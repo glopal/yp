@@ -49,9 +49,9 @@ func (ef *exportFile) GetImports() []string {
 
 func (e Exports) Push(n *Node) error {
 	switch n.Kind {
-	case Ref:
+	case Ref, RefMerge:
 		return e.pushRef(n)
-	case Refs:
+	case Refs, RefsMerge:
 		return e.pushRefs(n)
 	case Export:
 		return e.pushExport(n)
@@ -75,12 +75,17 @@ func (e Exports) pushRef(n *Node) error {
 
 func (e Exports) pushRefs(n *Node) error {
 	if n.CandidateNode.Kind != yqlib.SequenceNode {
-		return errors.New("#ref[] docs must be a sequence")
+		return fmt.Errorf("#%s docs must be a sequence", n.Kind)
+	}
+
+	newDocKind := Ref
+	if n.Kind == RefsMerge {
+		newDocKind = RefMerge
 	}
 
 	for _, elem := range n.CandidateNode.Content {
 		nn := n.CopyAttr()
-		nn.Kind = Ref
+		nn.Kind = newDocKind
 		nn.CandidateNode = elem
 		nn.tagNodes = getTagNodes(elem)
 
@@ -106,12 +111,12 @@ func (e Exports) pushExport(n *Node) error {
 
 	return nil
 }
-func (e Exports) getExports(names []string) map[string]*Node {
-	exports := map[string]*Node{}
+func (e Exports) getExports(names []string) map[string]*ContextNode {
+	exports := map[string]*ContextNode{}
 
 	for _, name := range names {
 		//TODO validation?
-		exports[name] = e.exports[name]
+		exports[name] = NewContextNode(e.exports[name].CandidateNode)
 	}
 
 	return exports
@@ -131,7 +136,14 @@ func (e Exports) resolve() (*ContextNode, error) {
 				return nil, err
 			}
 
-			prevRef = NewContextNode(ref.CandidateNode)
+			if ref.Kind == RefMerge {
+				prevRef, err = prevRef.Merge(ref.CandidateNode)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				prevRef = NewContextNode(ref.CandidateNode)
+			}
 		}
 		for _, export := range e.files[file].exports {
 			exports := e.getExports(export.GetImports())

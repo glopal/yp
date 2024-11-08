@@ -1,0 +1,14 @@
+--- #ref
+channels:
+  - cds-alerts
+  - connected-ship-alerts
+--- #<<ref
+!_ route_tmpl:
+  receiver: !tmpl '{{$v}}-slack'
+  matchers:
+    - name: channel
+      value: !yq $v
+--- #export
+!yq .
+---
+routes: !map .route_tmpl .channels

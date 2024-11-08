@@ -71,7 +71,7 @@ func incFilesResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
 }
 
 func resolveFile(dir, relPath string, rc ResolveContext) (*yqlib.CandidateNode, error) {
-	path, err := renderTemplate(relPath, rc.Ctx)
+	path, err := renderTemplate(relPath, rc)
 	if err != nil {
 		return nil, err
 	}

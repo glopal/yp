@@ -16,10 +16,10 @@ type TagResolver struct {
 type ResolveFunc func(ResolveContext) (*yqlib.CandidateNode, error)
 
 type ResolveContext struct {
-	Target  *yqlib.CandidateNode
-	Ctx     *ContextNode
-	Node    *Node
-	Imports map[string]*Node
+	Target *yqlib.CandidateNode
+	Ctx    *ContextNode
+	Node   *Node
+	Vars   map[string]*ContextNode
 }
 
 func AddTagResolver(tag string, resolver ResolveFunc, allowedKinds ...yqlib.Kind) {
@@ -51,7 +51,18 @@ func getTagNodes(node *yqlib.CandidateNode) []*tagNode {
 	tagNodes := []*tagNode{}
 
 	if node.Kind <= yqlib.MappingNode {
+		skip := false
 		for _, n := range node.Content {
+			if skip {
+				skip = false
+				continue
+			}
+			if cleanTag(n.Tag) == "_" {
+				if n.IsMapKey {
+					skip = true
+					continue
+				}
+			}
 			tagNodes = append(tagNodes, getTagNodes(n)...)
 		}
 	}

@@ -47,13 +47,18 @@ func NewNode(cn *yqlib.CandidateNode, file string) *Node {
 	return n
 }
 
-func (n *Node) Resolve(ctx *ContextNode, exports map[string]*Node) error {
+func (n *Node) Resolve(ctx *ContextNode, vars map[string]*ContextNode) error {
+	merges := []*yqlib.CandidateNode{}
 	for _, tn := range n.tagNodes {
+		if tn.tag == "merge" {
+			merges = append(merges, tn.candidateNode)
+			continue
+		}
 		nn, err := tagResolvers[tn.tag].Resolve(ResolveContext{
-			Target:  tn.candidateNode,
-			Ctx:     ctx,
-			Node:    n,
-			Imports: exports,
+			Target: tn.candidateNode,
+			Ctx:    ctx,
+			Node:   n,
+			Vars:   vars,
 		})
 		if err != nil {
 			return err
@@ -61,6 +66,16 @@ func (n *Node) Resolve(ctx *ContextNode, exports map[string]*Node) error {
 
 		if nn != nil {
 			*tn.candidateNode = *nn
+		}
+	}
+
+	merger := tagResolvers["merge"]
+	for i := len(merges) - 1; i >= 0; i-- {
+		_, err := merger.Resolve(ResolveContext{
+			Target: merges[i],
+		})
+		if err != nil {
+			return err
 		}
 	}
 
@@ -89,6 +104,20 @@ func (n *Node) CopyAttr() *Node {
 	}
 }
 
+func (n *Node) Clone() *Node {
+	nn := &Node{
+		Dir:           n.Dir,
+		File:          n.File,
+		Name:          n.Name,
+		Kind:          n.Kind,
+		CandidateNode: n.CandidateNode.Copy(),
+	}
+
+	nn.tagNodes = getTagNodes(nn.CandidateNode)
+
+	return nn
+}
+
 func (n *Node) Interface() (interface{}, error) {
 	if n.decoded != nil {
 		return n.decoded, nil
@@ -110,13 +139,13 @@ func (n *Node) Interface() (interface{}, error) {
 }
 
 func (n *Node) IsRef() bool {
-	return n.Kind == Ref
+	return n.Kind&(Ref|Refs|RefMerge|RefsMerge) > 0
 }
 func (n *Node) IsExport() bool {
 	return n.Kind == Export
 }
 func (n *Node) IsRefOrExport() bool {
-	return n.Kind&(Ref|Refs|Export) > 0
+	return n.Kind&(Ref|Refs|RefMerge|RefsMerge|Export) > 0
 }
 
 func (n *Node) IsResolved() bool {

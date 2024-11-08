@@ -12,6 +12,8 @@ const (
 	Plain DocKind = 1 << iota
 	Ref
 	Refs
+	RefMerge
+	RefsMerge
 	Export
 )
 
@@ -23,6 +25,8 @@ func (dk DocKind) String() string {
 		return "ref"
 	case Refs:
 		return "ref[]"
+	case RefMerge:
+		return "<<ref"
 	case Export:
 		return "export"
 	default:
@@ -39,6 +43,12 @@ func ToDocKind(str string) DocKind {
 	switch str {
 	case "ref":
 		return Ref
+	case "refs":
+		return Refs
+	case "<<ref":
+		return RefMerge
+	case "<<ref[]":
+		return RefsMerge
 	case "export":
 		return Export
 	default:
@@ -58,19 +68,14 @@ func determineDoc(n *yqlib.CandidateNode) Doc {
 
 	tokens := strings.Split(trimmed, "/")
 	kind := tokens[0]
-	switch kind {
-	case "ref":
-		doc.Kind = Ref
-	case "ref[]":
-		doc.Kind = Refs
-	case "export":
-		doc.Kind = Export
+	doc.Kind = ToDocKind(kind)
+
+	if doc.Kind == Export {
 		if len(tokens) == 2 {
 			doc.Val = tokens[1]
 		} else {
 			doc.Val = "."
 		}
-
 	}
 
 	n.HeadComment = ""

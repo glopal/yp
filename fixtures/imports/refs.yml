@@ -1,18 +1,28 @@
---- #ref/aa
-!import z
---- #ref/bb
-!import bbb
---- #export/a
-a: !yq $num
-bb: !yq $bb
---- #ref/num
-!yq $aa.val
+--- #ref
+a: 1
+--- #<<ref[]
+- b: !yq .a + 1
+- c: !yq .b + 1
+--- #ref
+!yq .
+--- #export
+letters: !yq .
+!defer literal: !yq .
+list:
+  - 2
+  - 3
+  - 4
 ---
-!yq $e
---- #export/b
-a: !import a
-z: !import z
---- #export/bbb
-!yq $bbb
---- #ref/bbb
-bbb
+<<:
+  <<: !yq .letters
+  d: 4
+e: 5
+literal: !yq .literal
+list:
+  - 1
+  - <<: !yq .list
+  - <<: [5,6,7]
+  - 8
+  - 9
+  - aa: 1
+    <<: !yq .letters
