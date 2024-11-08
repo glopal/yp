@@ -43,7 +43,7 @@ func ToDocKind(str string) DocKind {
 	switch str {
 	case "ref":
 		return Ref
-	case "refs":
+	case "ref[]":
 		return Refs
 	case "<<ref":
 		return RefMerge
