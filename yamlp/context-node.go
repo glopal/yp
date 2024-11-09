@@ -12,6 +12,12 @@ type ContextNode struct {
 }
 
 func NewContextNode(n *yqlib.CandidateNode) *ContextNode {
+	if n == nil {
+		n = &yqlib.CandidateNode{
+			Kind: yqlib.ScalarNode,
+			Tag:  "!!null",
+		}
+	}
 	return &ContextNode{
 		candidateNode: n,
 	}

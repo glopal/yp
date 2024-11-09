@@ -128,7 +128,7 @@ func (e Exports) resolve() (*ContextNode, error) {
 	}
 
 	for _, file := range files {
-		var prevRef *ContextNode
+		prevRef := NewContextNode(nil)
 		for _, ref := range e.files[file].refs {
 			exports := e.getExports(ref.GetImports())
 			err := ref.Resolve(prevRef, exports)
