@@ -172,7 +172,10 @@ func (n *Node) PrettyPrintYaml(w io.Writer) {
 
 func shouldColorize() bool {
 	colorsEnabled := false
-	fileInfo, _ := os.Stdout.Stat()
+	fileInfo, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
 
 	if (fileInfo.Mode() & os.ModeCharDevice) != 0 {
 		colorsEnabled = true
