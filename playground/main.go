@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/glopal/yamlplus/yamlp"
-	"github.com/spf13/afero"
 )
 
 func main() {
@@ -22,13 +21,13 @@ func main() {
 		panic(err)
 	}
 
-	memMapFs, err := vfs.ToMemMapFs()
-	if err != nil {
-		panic(err)
-	}
+	// memMapFs, err := vfs.ToMemMapFs()
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	osFs := afero.NewOsFs()
-	syncFs := afero.NewCopyOnWriteFs(memMapFs, osFs)
+	// osFs := afero.NewOsFs()
+	// syncFs := afero.NewCopyOnWriteFs(memMapFs, osFs)
 
 	r := gin.Default()
 
@@ -45,11 +44,11 @@ func main() {
 			return
 		}
 
-		nfs, err := tree.ToVFS()
-		if err != nil {
-			ctx.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
+		// nfs, err := tree.ToVFS()
+		// if err != nil {
+		// 	ctx.AbortWithError(http.StatusInternalServerError, err)
+		// 	return
+		// }
 
 		ctx.Status(http.StatusOK)
 	})
