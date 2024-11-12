@@ -1,0 +1,1 @@
+[{"id":"map","type":"dir-closed","parent":"#","text":"map"},{"id":"map/inner","type":"dir-closed","parent":"map","text":"inner"},{"id":"map/inner/empty.yml","type":"file","parent":"map/inner","text":"empty.yml"},{"id":"map/inner/z.yml","type":"file","parent":"map/inner","text":"z.yml"},{"id":"map/y.yml","type":"file","parent":"map","text":"y.yml"}]

@@ -16,6 +16,15 @@ type NamedReader interface {
 	Name() string
 }
 
+type FsFileWrapper struct {
+	fs.File
+	name string
+}
+
+func (f FsFileWrapper) Name() string {
+	return f.name
+}
+
 var decoder = yqlib.NewYamlDecoder(yqlib.YamlPreferences{
 	Indent:                      2,
 	ColorsEnabled:               false,
@@ -30,6 +39,39 @@ func init() {
 	leveled := logging.AddModuleLevel(logging.NewLogBackend(os.Stderr, "", 0))
 	leveled.SetLevel(logging.ERROR, "")
 	yqlib.GetLogger().SetBackend(leveled)
+}
+
+func LoadDirFS(fsys fs.FS, dir string, opts ...func(*loadOptions)) (*Nodes, error) {
+	options := defaultLoadOptions()
+	for _, o := range opts {
+		o(options)
+	}
+
+	files := []NamedReader{}
+
+	err := fs.WalkDir(fsys, dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() || !IsYamlFile(path) || options.omitFunc(path) {
+			return nil
+		}
+
+		f, err := fsys.Open(path)
+		if err != nil {
+			return err
+		}
+
+		files = append(files, FsFileWrapper{f, path})
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return Load(files...)
 }
 
 func LoadDir(dir string, opts ...func(*loadOptions)) (*Nodes, error) {

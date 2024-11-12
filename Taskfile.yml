@@ -1,0 +1,6 @@
+version: '3'
+
+tasks:
+  serve:
+    cmds:
+      - go run ./playground/.
