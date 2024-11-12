@@ -1,0 +1,10 @@
+--- #export
+id: example
+items:
+  - 1
+  - 2
+  - 3
+---
+key: val
+id: !yq .id
+nums: !yq .items

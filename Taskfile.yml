@@ -1,5 +1,8 @@
-version: '3'
+version: '3.8'
 
 includes:
   serve: taskfiles/serve.yml
   docs: taskfiles/docs.yml
+
+# tasks:
+#   default: task -l

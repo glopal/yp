@@ -70,7 +70,9 @@
             var editor = monaco.editor.create(document.getElementById('editor'), {
                 value: 'a: 1',
                 language: 'yaml',
-                theme: "vs-dark"
+                theme: "vs-dark",
+                fontSize: 20,
+                minimap: { enabled: false }
             });
 
             // function customMenu(node) {

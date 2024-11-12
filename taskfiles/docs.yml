@@ -1,14 +1,23 @@
-version: '3'
+version: '3.8'
 
 tasks:
   generate:
+    desc: Updates ./docs (Git Pages)
     dir: wasm
     deps:
       - wasm_exec_js
+      - examples_to_json
     cmds:
       - GOOS=js GOARCH=wasm go build -tags docs -o ../docs/main.wasm
   
+  # TODO add fingerprinting
   wasm_exec_js:
     internal: true
     cmds:
       - cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" ./docs/assets/js
+
+  examples_to_json:
+    internal: true
+    cmds:
+      - |
+        ls -1 `pwd`/examples/*.yml | yq 'split(" ") | .[] | { split("/").[-1]: load_str(.)} | . as $item ireduce ({}; . *n $item ) | @json' > docs/examples.json

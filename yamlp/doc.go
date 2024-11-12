@@ -101,6 +101,5 @@ func fixHeadComment(n *yqlib.CandidateNode) {
 		} else {
 			n.Content[0].HeadComment = ""
 		}
-
 	}
 }
