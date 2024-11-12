@@ -1,4 +1,6 @@
 --- #ref
+# comment after
+# multiple
 channels:
   - cds-alerts
   - connected-ship-alerts

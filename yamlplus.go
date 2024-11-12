@@ -1,23 +1,23 @@
 package main
 
 import (
-	"fmt"
+	"os"
 
 	"github.com/glopal/yamlplus/yamlp"
 )
 
 func main() {
-	// nodes, err := yamlp.LoadDir("fixtures/map", yamlp.OmitLeadingUnderscore())
-	// if err != nil {
-	// 	panic(err)
-	// }
+	nodes, err := yamlp.LoadDir("fixtures/map", yamlp.OmitLeadingUnderscore())
+	if err != nil {
+		panic(err)
+	}
 
-	// err = nodes.Resolve()
-	// if err != nil {
-	// 	panic(err)
-	// }
+	err = nodes.Resolve()
+	if err != nil {
+		panic(err)
+	}
 
-	// nodes.PrettyPrintYaml(os.Stdout)
+	nodes.PrettyPrintYaml(os.Stdout)
 
 	// fsNode, err := yamlp.UnmarshalDir("fixtures/map")
 	// if err != nil {
@@ -35,22 +35,22 @@ func main() {
 	// 	panic(err)
 	// }
 
-	vfs := yamlp.NewVFS()
+	// vfs := yamlp.NewVFS()
 
 	// err := vfs.UnmarshalDir("fixtures/map", 1)
 	// if err != nil {
 	// 	panic(err)
 	// }
-	err := vfs.UnmarshalYaml("tests/tag_map/basic-usage.yml")
-	if err != nil {
-		panic(err)
-	}
+	// err := vfs.UnmarshalYaml("tests/tag_map/basic-usage.yml")
+	// if err != nil {
+	// 	panic(err)
+	// }
 
-	data, err := vfs.ToYaml()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(data))
+	// data, err := vfs.ToYaml()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// fmt.Println(string(data))
 
 	// fsys, err := vfs.ToMemMapFs()
 	// if err != nil {

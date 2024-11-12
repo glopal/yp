@@ -1,6 +1,7 @@
 package yamlp
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
@@ -70,6 +71,8 @@ func determineDoc(n *yqlib.CandidateNode) Doc {
 	kind := tokens[0]
 	doc.Kind = ToDocKind(kind)
 
+	fmt.Println(kind)
+
 	if doc.Kind == Export {
 		if len(tokens) == 2 {
 			doc.Val = tokens[1]
@@ -90,7 +93,14 @@ func fixHeadComment(n *yqlib.CandidateNode) {
 	}
 
 	if len(n.Content) > 0 {
-		n.HeadComment = n.Content[0].HeadComment
-		n.Content[0].HeadComment = ""
+		lines := strings.Split(n.Content[0].HeadComment, "\n")
+		n.HeadComment = lines[0]
+
+		if len(lines) > 1 {
+			n.Content[0].HeadComment = strings.Join(lines[1:], "\n")
+		} else {
+			n.Content[0].HeadComment = ""
+		}
+
 	}
 }

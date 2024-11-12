@@ -80,9 +80,25 @@
                 ))
             })
 
+            var defaultValue = `--- #ref
+# ADD OR REMOVE CHANNELS AND PRESS RUN
+channels:
+  - cds-alerts
+  - abc-alerts
+--- #<<ref
+!_ route_tmpl:
+  receiver: !tmpl '{{$v}}-slack'
+  matchers:
+    - name: channel
+      value: !yq $v
+--- #export
+!yq .
+---
+routes: !map .route_tmpl .channels`
+
             var fontSize = 20
             var editor = monaco.editor.create(document.getElementById('editor'), {
-                value: 'a: 1',
+                value: defaultValue,
                 language: 'yaml',
                 fontSize: fontSize,
                 theme: "vs-dark",
