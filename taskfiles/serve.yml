@@ -1,0 +1,10 @@
+version: '3'
+
+tasks:
+  docs:
+    cmds:
+      - pwd
+      - go run ./docs/.
+  editor:
+    cmds:
+      - go run ./playground/.

@@ -1,0 +1,14 @@
+version: '3'
+
+tasks:
+  generate:
+    dir: wasm
+    deps:
+      - wasm_exec_js
+    cmds:
+      - GOOS=js GOARCH=wasm go build -tags docs -o ../docs/public/main.wasm
+  
+  wasm_exec_js:
+    internal: true
+    cmds:
+      - cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" ./docs/public/assets/js
