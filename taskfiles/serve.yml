@@ -4,7 +4,7 @@ tasks:
   docs:
     cmds:
       - pwd
-      - go run ./docs/.
+      - go run docs.go
   editor:
     cmds:
       - go run ./playground/.
