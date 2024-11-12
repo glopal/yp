@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -73,11 +72,11 @@ func main() {
 
 		// sync.Sync(context.TODO(), os.DirFS("tests"), fsrc, true)
 
-		if err := syncFs.Mkdir(node.Id, 0755); err != nil {
-			fmt.Println(err)
-			ctx.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
+		// if err := syncFs.Mkdir(node.Id, 0755); err != nil {
+		// 	fmt.Println(err)
+		// 	ctx.AbortWithError(http.StatusInternalServerError, err)
+		// 	return
+		// }
 
 		ctx.Status(http.StatusOK)
 	})
