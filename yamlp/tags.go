@@ -73,3 +73,15 @@ func getTagNodes(node *yqlib.CandidateNode) []*tagNode {
 func cleanTag(tag string) string {
 	return strings.TrimLeft(tag, "!")
 }
+
+func CreateScalarNode(tag, value string) *yqlib.CandidateNode {
+	return &yqlib.CandidateNode{
+		Kind:  yqlib.ScalarNode,
+		Tag:   tag,
+		Value: value,
+	}
+}
+
+func CreateNullNode() *yqlib.CandidateNode {
+	return CreateScalarNode("!!null", "null")
+}
