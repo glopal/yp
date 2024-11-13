@@ -1,10 +1,22 @@
 version: '3.8'
 
+interval: 1000ms
+
+includes:
+  docs: docs.yml
+
 tasks:
   docs:
     desc: Serve the ./doc on localhost:8080
+    watch: true
+    sources:
+      - wasm/*.go
+      - yamlp/*.go
+      - examples/*.yml
     cmds:
+      - task: docs:generate
       - go run docs.go
+
   editor:
     desc: Serve the test editor on localhost:8080
     cmds:
