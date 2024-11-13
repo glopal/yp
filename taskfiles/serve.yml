@@ -4,7 +4,6 @@ tasks:
   docs:
     desc: Serve the ./doc on localhost:8080
     cmds:
-      - pwd
       - go run docs.go
   editor:
     desc: Serve the test editor on localhost:8080

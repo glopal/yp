@@ -1,6 +1,6 @@
 module playground
 
-go 1.23.1
+go 1.23.2
 
 replace yamlp => ../yamlp
 

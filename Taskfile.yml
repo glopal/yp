@@ -4,5 +4,5 @@ includes:
   serve: taskfiles/serve.yml
   docs: taskfiles/docs.yml
 
-# tasks:
-#   default: task -l
+tasks:
+  default: task -l

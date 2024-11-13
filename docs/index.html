@@ -41,6 +41,7 @@
             </div>
         </nav>
         <div class="row mt-2 mb-2">
+            <div class="col col-md-1"></div>
             <div class="col text-end">
                 <button id="run-btn" type="button" class="fs-3 btn btn-primary">RUN</button>
             </div>
@@ -48,6 +49,10 @@
             </div>
         </div>
         <div class="row h-100">
+            <div class="col col-md-1">
+                <div id="examples" class="list-group">
+                </div>
+            </div>
             <div class="col h-100">
                 <div id="editor"></div>
             </div>
@@ -65,40 +70,9 @@
 
         <script src="assets/js/wasm_exec.js"></script>
         <script>
-            async function runWasm() {
-                const go = new Go();
-                const result = await WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject);
-                go.run(result.instance);
-            }
-
-            runWasm();
-
-            $('#run-btn').on("click", function () {
-                output.setModel(monaco.editor.createModel(
-                    window.yamlp(editor.getModel().getValue()),
-                    'yaml'
-                ))
-            })
-
-            var defaultValue = `--- #ref
-# ADD OR REMOVE CHANNELS AND PRESS RUN
-channels:
-  - cds-alerts
-  - abc-alerts
---- #<<ref
-!_ route_tmpl:
-  receiver: !tmpl '{{$v}}-slack'
-  matchers:
-    - name: channel
-      value: !yq $v
---- #export
-!yq .
----
-routes: !map .route_tmpl .channels`
-
             var fontSize = 20
             var editor = monaco.editor.create(document.getElementById('editor'), {
-                value: defaultValue,
+                value: '',
                 language: 'yaml',
                 fontSize: fontSize,
                 theme: "vs-dark",
@@ -113,6 +87,53 @@ routes: !map .route_tmpl .channels`
                 minimap: { enabled: false },
                 readOnly: true
             });
+
+            async function runWasm() {
+                const go = new Go();
+                const result = await WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject);
+                go.run(result.instance);
+            }
+
+            runWasm();
+
+            async function getExamples() {
+                resp = await fetch("examples.json")
+                data = await resp.json()
+                return data
+            }
+            getExamples().then(examples => {
+                exampleList = $("#examples")
+                Object.keys(examples).forEach((key) => {
+                    example = exampleList.append(`<a href="#" id="${key}" class="example-btn list-group-item list-group-item-action">${key}</a>`)
+                    example.attr("content", examples[key])
+                })
+
+                $('.example-btn').on("click", function (e) {
+                    exampleList.children().removeClass("active")
+                    $(e.target).addClass("active")
+                    console.log($(e.target).attr("id"))
+                    editor.setModel(monaco.editor.createModel(
+                        examples[$(e.target).attr("id")],
+                        'yaml'
+                    ))
+                    output.setModel(monaco.editor.createModel(
+                        "",
+                        'yaml'
+                    ))
+                })
+
+                exampleList.children(":first").trigger('click')
+
+            });
+
+
+
+            $('#run-btn').on("click", function () {
+                output.setModel(monaco.editor.createModel(
+                    window.yamlp(editor.getModel().getValue()),
+                    'yaml'
+                ))
+            })
         </script>
 </body>
 
