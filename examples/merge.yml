@@ -1,0 +1,43 @@
+--- #export
+obj:
+  c: 3
+  d: 4
+list:
+  - 3
+  - 4
+---
+obj:
+  start:
+    <<: !yq .obj
+    e: 5
+  end:
+    a: 1
+    b: 2
+    <<: !yq .obj
+  middle:
+    a: 1
+    b: 2
+    <<: !yq .obj
+    e: 5
+  total:
+    <<: !yq .obj
+list:
+  start:
+    - <<: !yq .list
+    - 5
+  end:
+    - 1
+    - 2
+    - <<: !yq .list
+  middle: 
+    - 1
+    - 2
+    - <<: !yq .list
+    - 5
+    - 6
+  total:
+    - <<: !yq .list
+
+
+
+

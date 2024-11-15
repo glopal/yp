@@ -49,7 +49,10 @@ func seqMerge(target *yqlib.CandidateNode) error {
 
 	n.Content = append(n.Content, seqNode.Content[:startIndex]...)
 	n.Content = append(n.Content, newContent...)
-	n.Content = append(n.Content, seqNode.Content[startIndex+2:]...)
+
+	if startIndex+1 < len(seqNode.Content) {
+		n.Content = append(n.Content, seqNode.Content[startIndex+1:]...)
+	}
 
 	seqNode.Content = n.Content
 

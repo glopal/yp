@@ -5,11 +5,31 @@ channels:
   - abc-alerts
 --- #<<ref
 !_ route_tmpl:
-  receiver: !tmpl '{{$v}}-slack'
-  matchers:
-    - name: channel
-      value: !yq $v
+  - receiver: !tmpl '{{$v}}-slack'
+    matchers:
+      - name: channel
+        value: !yq $v
 --- #export
 !yq .
 ---
-routes: !map .route_tmpl .channels
+routes: !map .channels .route_tmpl
+---
+routes:
+  !map [abc, xyz]:
+    !_ <<:
+        receiver: !tmpl '{{$v}}-slack'
+        matchers:
+          - name: channel
+            value: !yq $v
+---
+map_routes:
+  !map [abc, xyz]:
+    !_ <<:
+      !yq '$v': !tmpl '{{$v}}-value'
+---
+routes:
+  !map [abc, xyz]: !_
+    - receiver: !tmpl '{{$v}}-slack'
+      matchers:
+        - name: channel
+          value: !yq $v

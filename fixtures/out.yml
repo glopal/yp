@@ -1,0 +1,15 @@
+--- #export
+dir: example-exporter
+envs:
+  - tst
+  - stg
+  - prd
+---
+a: 1
+b: 2
+--- #out
+"/dev/stdout": !yq .nodes
+<<:
+  !map '[.ctx.dir + "/overlays/aws-digital/" + .ctx.envs[] + "/dkp2/resources.yml"]':
+    !_ <<:
+      !yq $v: !yq .nodes

@@ -1,13 +1,10 @@
 package main
 
-import (
-	"os"
-
-	"github.com/glopal/yamlplus/yamlp"
-)
+import "github.com/glopal/yamlplus/yamlp"
 
 func main() {
-	nodes, err := yamlp.LoadFile("examples/sqrt.yml")
+	// nodes, err := yamlp.LoadFile("examples/merge.yml")
+	nodes, err := yamlp.LoadFile("fixtures/out.yml")
 	if err != nil {
 		panic(err)
 	}
@@ -17,7 +14,11 @@ func main() {
 		panic(err)
 	}
 
-	nodes.PrettyPrintYaml(os.Stdout)
+	err = nodes.Out()
+	if err != nil {
+		panic(err)
+	}
+	// nodes.PrettyPrintYaml(os.Stdout)
 
 	// fsNode, err := yamlp.UnmarshalDir("fixtures/map")
 	// if err != nil {

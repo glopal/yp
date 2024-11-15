@@ -159,7 +159,7 @@ func (n *Node) ID() string {
 func (n *Node) PrettyPrintYaml(w io.Writer) {
 	prefs := yqlib.NewDefaultYamlPreferences()
 	prefs.UnwrapScalar = false
-	prefs.ColorsEnabled = shouldColorize()
+	prefs.ColorsEnabled = shouldColorize(os.Stdout)
 	prefs.Indent = 2
 	printer := yqlib.NewPrinter(yqlib.NewYamlEncoder(prefs), yqlib.NewSinglePrinterWriter(w))
 
@@ -170,9 +170,9 @@ func (n *Node) PrettyPrintYaml(w io.Writer) {
 	printer.PrintResults(list)
 }
 
-func shouldColorize() bool {
+func shouldColorize(out *os.File) bool {
 	colorsEnabled := false
-	fileInfo, err := os.Stdout.Stat()
+	fileInfo, err := out.Stat()
 	if err != nil {
 		return false
 	}

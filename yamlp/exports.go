@@ -9,8 +9,9 @@ import (
 )
 
 type Exports struct {
-	files   map[string]*exportFile
-	exports map[string]*Node
+	files       map[string]*exportFile
+	exports     map[string]*Node
+	contextNode *ContextNode
 }
 
 type exportFile struct {
@@ -121,7 +122,7 @@ func (e Exports) getExports(names []string) map[string]*ContextNode {
 
 	return exports
 }
-func (e Exports) resolve() (*ContextNode, error) {
+func (e *Exports) resolve() (*ContextNode, error) {
 	files, err := e.getResolveOrder()
 	if err != nil {
 		return nil, err
@@ -155,10 +156,12 @@ func (e Exports) resolve() (*ContextNode, error) {
 	}
 
 	if dot, exists := e.exports["."]; exists {
-		return NewContextNode(dot.CandidateNode), nil
+		e.contextNode = NewContextNode(dot.CandidateNode)
+	} else {
+		e.contextNode = NewContextNode(createExportMapNode(e.exports))
 	}
 
-	return NewContextNode(createExportMapNode(e.exports)), nil
+	return e.contextNode, nil
 }
 
 func (e Exports) getResolveOrder() ([]string, error) {

@@ -1,18 +1,25 @@
 package yamlp
 
 import (
+	"container/list"
+	"errors"
 	"io"
+	"os"
+	"path/filepath"
+
+	"github.com/mikefarah/yq/v4/pkg/yqlib"
 )
 
 type Nodes struct {
 	nodes   []*Node
-	exports Exports
+	exports *Exports
+	out     *Node
 }
 
 func NewNodes() *Nodes {
 	return &Nodes{
 		nodes: make([]*Node, 0),
-		exports: Exports{
+		exports: &Exports{
 			files:   map[string]*exportFile{},
 			exports: map[string]*Node{},
 		},
@@ -23,9 +30,21 @@ func (ns *Nodes) Nodes() []*Node {
 	return ns.nodes
 }
 
+func (ns *Nodes) CandidateNodes() []*yqlib.CandidateNode {
+	cnodes := make([]*yqlib.CandidateNode, 0, len(ns.nodes))
+
+	for _, n := range ns.nodes {
+		cnodes = append(cnodes, n.CandidateNode)
+	}
+
+	return cnodes
+}
+
 func (ns *Nodes) Push(n *Node) error {
 	if n.IsRefOrExport() {
 		return ns.exports.Push(n)
+	} else if n.Kind == Out {
+		ns.out = n
 	} else {
 		ns.nodes = append(ns.nodes, n)
 	}
@@ -75,4 +94,81 @@ func (ns *Nodes) PrettyPrintYaml(w io.Writer) {
 		w.Write([]byte("---\n"))
 		n.PrettyPrintYaml(w)
 	}
+}
+
+func (ns *Nodes) Out() error {
+	outNodes, err := ns.resolveOut()
+	if err != nil {
+		return err
+	}
+
+	prefs := yqlib.NewDefaultYamlPreferences()
+	prefs.UnwrapScalar = false
+	prefs.Indent = 2
+
+	for _, out := range outNodes {
+		l := list.New()
+		prefs.ColorsEnabled = shouldColorize(out.file)
+		printer := yqlib.NewPrinter(yqlib.NewYamlEncoder(prefs), yqlib.NewSinglePrinterWriter(out.file))
+		defer out.file.Close()
+
+		for _, cn := range out.nodes {
+			l.PushBack(cn)
+		}
+
+		err = printer.PrintResults(l)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type OutNodes struct {
+	nodes []*yqlib.CandidateNode
+	file  *os.File
+}
+
+func (ns *Nodes) resolveOut() ([]OutNodes, error) {
+	if ns.out == nil {
+		return []OutNodes{{
+			nodes: ns.CandidateNodes(),
+			file:  os.Stdout,
+		}}, nil
+	}
+
+	err := ns.out.Resolve(NewOutContextNode(ns), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if ns.out.CandidateNode.Kind != yqlib.MappingNode {
+		return nil, errors.New("#out node must be a map")
+	}
+
+	outNodes := make([]OutNodes, 0, len(ns.out.CandidateNode.Content)/2)
+
+	for i := 0; i < len(ns.out.CandidateNode.Content); i += 2 {
+		path := ns.out.CandidateNode.Content[i].Value
+
+		if path != filepath.Base(path) {
+			err := os.MkdirAll(filepath.Dir(path), 0755)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		file, err := os.Create(path)
+		if err != nil {
+			return nil, err
+		}
+
+		outNodes = append(outNodes, OutNodes{
+			file:  file,
+			nodes: ns.out.CandidateNode.Content[i+1].Content,
+		})
+	}
+
+	return outNodes, nil
 }

@@ -1,7 +1,6 @@
 package yamlp
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
@@ -16,6 +15,7 @@ const (
 	RefMerge
 	RefsMerge
 	Export
+	Out
 )
 
 func (dk DocKind) String() string {
@@ -30,6 +30,8 @@ func (dk DocKind) String() string {
 		return "<<ref"
 	case Export:
 		return "export"
+	case Out:
+		return "out"
 	default:
 		return ""
 	}
@@ -52,6 +54,8 @@ func ToDocKind(str string) DocKind {
 		return RefsMerge
 	case "export":
 		return Export
+	case "out":
+		return Out
 	default:
 		return Plain
 	}
@@ -70,8 +74,6 @@ func determineDoc(n *yqlib.CandidateNode) Doc {
 	tokens := strings.Split(trimmed, "/")
 	kind := tokens[0]
 	doc.Kind = ToDocKind(kind)
-
-	fmt.Println(kind)
 
 	if doc.Kind == Export {
 		if len(tokens) == 2 {

@@ -23,6 +23,29 @@ func NewContextNode(n *yqlib.CandidateNode) *ContextNode {
 	}
 }
 
+func NewOutContextNode(nodes *Nodes) *ContextNode {
+	ctx := &ContextNode{
+		candidateNode: &yqlib.CandidateNode{
+			Kind: yqlib.MappingNode,
+		},
+	}
+
+	ctx.candidateNode.AddKeyValueChild(&yqlib.CandidateNode{
+		Kind:  yqlib.ScalarNode,
+		Value: "nodes",
+	}, &yqlib.CandidateNode{
+		Kind:    yqlib.SequenceNode,
+		Content: nodes.CandidateNodes(),
+	})
+
+	ctx.candidateNode.AddKeyValueChild(&yqlib.CandidateNode{
+		Kind:  yqlib.ScalarNode,
+		Value: "ctx",
+	}, nodes.exports.contextNode.candidateNode)
+
+	return ctx
+}
+
 func (n *ContextNode) Merge(rhs *yqlib.CandidateNode) (*ContextNode, error) {
 	err := yqlib.NewDataTreeNavigator().DeeplyAssign(createMergeContext(n.candidateNode), []interface{}{}, rhs)
 	if err != nil {
@@ -72,19 +95,34 @@ func (n *ContextNode) ForEachNode(iter func(vars map[string]*ContextNode)) {
 	}
 }
 
-func (n *ContextNode) Reduce(initial *yqlib.CandidateNode, iter func(vars map[string]*ContextNode) (*yqlib.CandidateNode, error), update func(*yqlib.CandidateNode, *yqlib.CandidateNode)) error {
+func (n *ContextNode) Reduce(kind yqlib.Kind, iter func(vars map[string]*ContextNode) (*yqlib.CandidateNode, error)) (*yqlib.CandidateNode, error) {
+	var initial *yqlib.CandidateNode
+	var update func(*yqlib.CandidateNode, *yqlib.CandidateNode) error
+
+	switch kind {
+	case yqlib.MappingNode:
+		initial = newMapNode()
+		update = updateMapNode
+	default:
+		initial = newSeqNode()
+		update = updateSeqNode
+	}
+
 	for _, v := range n.candidateNode.Content {
 		node, err := iter(map[string]*ContextNode{
 			"v": NewContextNode(v),
 		})
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		update(initial, node)
+		err = update(initial, node)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return nil
+	return initial, nil
 }
 
 func newSeqNode() *yqlib.CandidateNode {
@@ -94,6 +132,25 @@ func newSeqNode() *yqlib.CandidateNode {
 	}
 }
 
-func updateSeqNode(seq *yqlib.CandidateNode, item *yqlib.CandidateNode) {
-	seq.Content = append(seq.Content, item)
+func updateSeqNode(seq *yqlib.CandidateNode, item *yqlib.CandidateNode) error {
+	seq.Content = append(seq.Content, item.Content...)
+	return nil
+}
+
+func newMapNode() *yqlib.CandidateNode {
+	return &yqlib.CandidateNode{
+		Kind:    yqlib.MappingNode,
+		Content: []*yqlib.CandidateNode{},
+	}
+}
+
+// func mapNodeReducer() (*yqlib.CandidateNode, func(*yqlib.CandidateNode, *yqlib.CandidateNode)) {
+// 	initial := newMapNode()
+
+//		return initial, func(mapNode *yqlib.CandidateNode, item *yqlib.CandidateNode) {
+//			mapNode.AddChildren(item.Content)
+//		}
+//	}
+func updateMapNode(mapNode *yqlib.CandidateNode, item *yqlib.CandidateNode) error {
+	return yqlib.NewDataTreeNavigator().DeeplyAssign(createMergeContext(mapNode), []interface{}{}, item)
 }

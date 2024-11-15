@@ -1,15 +1,10 @@
 --- #ref
-# comment after
-# multiple
 channels:
   - cds-alerts
   - connected-ship-alerts
 --- #<<ref
-!_ route_tmpl:
+!_ out_tmpl:
   receiver: !tmpl '{{$v}}-slack'
-  matchers:
-    - name: channel
-      value: !yq $v
 --- #export
 !yq .
 ---

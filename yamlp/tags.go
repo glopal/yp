@@ -59,9 +59,13 @@ func getTagNodes(node *yqlib.CandidateNode) []*tagNode {
 			}
 			if cleanTag(n.Tag) == "_" {
 				if n.IsMapKey {
-					skip = true
-					continue
+					if n.Value == "<<" {
+						n.Tag = "!!merge"
+					}
+
 				}
+				skip = true
+				continue
 			}
 			tagNodes = append(tagNodes, getTagNodes(n)...)
 		}
