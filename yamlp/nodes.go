@@ -104,6 +104,7 @@ func (ns *Nodes) Out() error {
 
 	prefs := yqlib.NewDefaultYamlPreferences()
 	prefs.UnwrapScalar = false
+	prefs.PrintDocSeparators = true
 	prefs.Indent = 2
 
 	for _, out := range outNodes {
@@ -112,7 +113,11 @@ func (ns *Nodes) Out() error {
 		printer := yqlib.NewPrinter(yqlib.NewYamlEncoder(prefs), yqlib.NewSinglePrinterWriter(out.file))
 		defer out.file.Close()
 
-		for _, cn := range out.nodes {
+		for docIndex, cn := range out.nodes {
+			// setting the document index and parent to nil enables doc separator printing
+			cn.SetDocument(uint(docIndex))
+			cn.Parent = nil
+
 			l.PushBack(cn)
 		}
 
