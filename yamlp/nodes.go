@@ -148,8 +148,15 @@ func (ns *Nodes) resolveOut() ([]OutNodes, error) {
 		return nil, err
 	}
 
-	if ns.out.CandidateNode.Kind != yqlib.MappingNode {
-		return nil, errors.New("#out node must be a map")
+	if ns.out.CandidateNode.Kind > yqlib.MappingNode {
+		return nil, errors.New("#out node must be a map or sequence")
+	}
+
+	if ns.out.CandidateNode.Kind == yqlib.SequenceNode {
+		return []OutNodes{{
+			nodes: ns.out.CandidateNode.Content,
+			file:  os.Stdout,
+		}}, nil
 	}
 
 	outNodes := make([]OutNodes, 0, len(ns.out.CandidateNode.Content)/2)
