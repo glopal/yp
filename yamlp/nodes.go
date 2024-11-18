@@ -81,14 +81,6 @@ func mergeRefs(refs map[string]*Node, exports map[string]*Node) map[string]*Node
 	return merged
 }
 
-// func (ns *Nodes) getRefExportOrder() {
-// 	for _, refs := range ns.refs {
-// 		for name, ref := range refs {
-// 			ref.GetImports()
-// 		}
-// 	}
-// }
-
 func (ns *Nodes) PrettyPrintYaml(w io.Writer) {
 	for _, n := range ns.nodes {
 		w.Write([]byte("---\n"))
