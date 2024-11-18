@@ -47,7 +47,7 @@ func cleanTabs(str string) string {
 }
 
 func Load(files []MockFile) (*yamlp.Nodes, error) {
-	return yamlp.Load(toMockFileReaders(files)...)
+	return yamlp.LoadReaders(toMockFileReaders(files)...)
 }
 
 func OutReader(nodes *yamlp.Nodes) io.Reader {

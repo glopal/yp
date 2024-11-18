@@ -71,10 +71,19 @@ func LoadDirFS(fsys fs.FS, dir string, opts ...func(*loadOptions)) (*Nodes, erro
 		return nil, err
 	}
 
-	return Load(files...)
+	return LoadReaders(files...)
 }
 
 func LoadDir(dir string, opts ...func(*loadOptions)) (*Nodes, error) {
+	readers, err := getDirReaders(dir, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return LoadReaders(readers...)
+}
+
+func getDirReaders(dir string, opts ...func(*loadOptions)) ([]NamedReader, error) {
 	options := defaultLoadOptions()
 	for _, o := range opts {
 		o(options)
@@ -97,20 +106,11 @@ func LoadDir(dir string, opts ...func(*loadOptions)) (*Nodes, error) {
 		}
 
 		files = append(files, f)
-		// n, err := LoadFile(path)
-		// if err != nil {
-		// 	return err
-		// }
-
-		// nodes.Append(n)
 
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
 
-	return Load(files...)
+	return files, err
 }
 
 func LoadFile(file string) (*Nodes, error) {
@@ -119,10 +119,38 @@ func LoadFile(file string) (*Nodes, error) {
 		return nil, err
 	}
 
-	return Load(f)
+	return LoadReaders(f)
 }
 
-func Load(files ...NamedReader) (*Nodes, error) {
+func Load(paths []string, opts ...func(*loadOptions)) (*Nodes, error) {
+	files := []NamedReader{}
+
+	for _, path := range paths {
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+
+		fileInfo, err := file.Stat()
+		if err != nil {
+			return nil, err
+		}
+
+		if fileInfo.IsDir() {
+			readers, err := getDirReaders(path)
+			if err != nil {
+				return nil, err
+			}
+
+			files = append(files, readers...)
+		} else {
+			files = append(files, file)
+		}
+	}
+
+	return LoadReaders(files...)
+}
+func LoadReaders(files ...NamedReader) (*Nodes, error) {
 	nodes := NewNodes()
 
 	for _, f := range files {
