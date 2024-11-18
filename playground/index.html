@@ -59,6 +59,7 @@
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
         <script src="/assets/js/jstree.min.js"></script>
         <script src="/assets/js/actions.js"></script>
+        <script src="/assets/js/events.js"></script>
         <script src="/assets/js/menus.js"></script>
         <script>
             var require = { paths: { vs: 'assets/js/monaco/min/vs' } };
@@ -74,6 +75,8 @@
                 fontSize: 20,
                 minimap: { enabled: false }
             });
+
+            root = NewNodeListener('tests')
 
             // function customMenu(node) {
             //     var items = $.jstree.defaults.contextmenu.items(node);
@@ -102,8 +105,21 @@
             });
 
             $('#tests').on('create_node.jstree', function (e, data) {
-                console.log(data);
+                console.log("CREATE: ", data);
             });
+
+            // $('#tests').on('rename_node.jstree', function (e, data) {
+            //     console.log("RENAME: ", data);
+            //     console.log("ID: ", data.id);
+
+            //     var nodeId = data.node.original.id;
+            //     if (nodeId == undefined) {
+            //         $(document).trigger('update_node', e, data)
+            //         console.log('New Node Added', data);
+            //     } else if (data.old !== data.text) {
+            //         console.log('Node Renamed', data);
+            //     }
+            // });
             $('#tests').on('select_node.jstree', function (e, data) {
                 if (data.node.type == "file") {
                     $('#test').jstree(true).settings.core.data = Object.values(data.node.data.tree)

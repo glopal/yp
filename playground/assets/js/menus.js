@@ -52,7 +52,7 @@ customMenu = function (o, cb) {
             "action": function (data) {
                 var inst = $.jstree.reference(data.reference),
                     obj = inst.get_node(data.reference);
-                inst.create_node(obj, { type: "file" }, "last", function (new_node) {
+                inst.create_node(obj, { type: "file", data: { isNew: true } }, "last", function (new_node) {
                     try {
                         inst.edit(new_node, "New", function (n, status, cancelled) {
                             console.log("CALLBACK")
