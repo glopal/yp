@@ -41,6 +41,20 @@ func init() {
 	yqlib.GetLogger().SetBackend(leveled)
 }
 
+func Run(paths []string, opts ...func(*loadOptions)) error {
+	nodes, err := Load(paths, opts...)
+	if err != nil {
+		return err
+	}
+
+	err = nodes.Resolve()
+	if err != nil {
+		return err
+	}
+
+	return nodes.Out()
+}
+
 func LoadDirFS(fsys fs.FS, dir string, opts ...func(*loadOptions)) (*Nodes, error) {
 	options := defaultLoadOptions()
 	for _, o := range opts {
