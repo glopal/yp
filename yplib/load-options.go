@@ -1,6 +1,7 @@
-package yamlp
+package yplib
 
 import (
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 type loadOptions struct {
 	omitFunc func(string) bool
 	fs       fs.FS
+	writer   io.Writer
 }
 
 func defaultLoadOptions() *loadOptions {
@@ -24,6 +26,12 @@ func defaultLoadOptions() *loadOptions {
 func WithFS(fsys fs.FS) func(*loadOptions) {
 	return func(lo *loadOptions) {
 		lo.fs = fsys
+	}
+}
+
+func WithWriter(w io.Writer) func(*loadOptions) {
+	return func(lo *loadOptions) {
+		lo.writer = w
 	}
 }
 

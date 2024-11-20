@@ -1,4 +1,4 @@
-package yamlp
+package yplib
 
 // func TestLoadGlob(t *testing.T) {
 // 	nodes, err := LoadDir("./fixtures")

@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/glopal/yamlplus/cmd"
+	"github.com/glopal/yp/cmd"
 )
 
 func main() {

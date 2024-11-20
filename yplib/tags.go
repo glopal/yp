@@ -1,4 +1,4 @@
-package yamlp
+package yplib
 
 import (
 	"strings"

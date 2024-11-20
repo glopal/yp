@@ -1,4 +1,4 @@
-package yamlp
+package yplib
 
 import (
 	"container/list"
@@ -104,10 +104,14 @@ func (ns *Nodes) Out() error {
 	prefs.Indent = 2
 
 	for _, out := range ns.outNodes {
+		w := out.writer
+		if w == nil {
+			w = out.file
+			defer out.file.Close()
+		}
 		l := list.New()
 		prefs.ColorsEnabled = shouldColorize(out.file)
-		printer := yqlib.NewPrinter(yqlib.NewYamlEncoder(prefs), yqlib.NewSinglePrinterWriter(out.file))
-		defer out.file.Close()
+		printer := yqlib.NewPrinter(yqlib.NewYamlEncoder(prefs), yqlib.NewSinglePrinterWriter(w))
 
 		for docIndex, cn := range out.node.Content {
 			// setting the document index and parent to nil enables doc separator printing
@@ -127,8 +131,9 @@ func (ns *Nodes) Out() error {
 }
 
 type OutNodes struct {
-	node *yqlib.CandidateNode
-	file *os.File
+	node   *yqlib.CandidateNode
+	file   *os.File
+	writer io.Writer
 }
 
 func (ns *Nodes) resolveOut() ([]OutNodes, error) {
@@ -138,7 +143,8 @@ func (ns *Nodes) resolveOut() ([]OutNodes, error) {
 				Kind:    yqlib.SequenceNode,
 				Content: ns.CandidateNodes(),
 			},
-			file: os.Stdout,
+			file:   os.Stdout,
+			writer: ns.opts.writer,
 		}}, nil
 	}
 
