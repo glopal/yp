@@ -2,158 +2,69 @@ package yamlp
 
 import (
 	"errors"
-	"io"
-	"io/fs"
-	"os"
-	"path/filepath"
-
-	"github.com/mikefarah/yq/v4/pkg/yqlib"
-	"gopkg.in/op/go-logging.v1"
 )
 
-type NamedReader interface {
-	io.Reader
-	Name() string
+type NodeLoader struct {
+	paths    []string
+	opts     *loadOptions
+	nodes    *Nodes
+	err      error
+	resolved bool
 }
 
-type FsFileWrapper struct {
-	fs.File
-	name string
-}
-
-func (f FsFileWrapper) Name() string {
-	return f.name
-}
-
-var decoder = yqlib.NewYamlDecoder(yqlib.YamlPreferences{
-	Indent:                      2,
-	ColorsEnabled:               false,
-	LeadingContentPreProcessing: false,
-	PrintDocSeparators:          true,
-	UnwrapScalar:                true,
-	EvaluateTogether:            false,
-})
-
-func init() {
-	// disable yqlib debug logging
-	leveled := logging.AddModuleLevel(logging.NewLogBackend(os.Stderr, "", 0))
-	leveled.SetLevel(logging.ERROR, "")
-	yqlib.GetLogger().SetBackend(leveled)
-}
-
-func Run(paths []string, opts ...func(*loadOptions)) error {
-	nodes, err := Load(paths, opts...)
-	if err != nil {
-		return err
+func Load(paths ...string) *NodeLoader {
+	return &NodeLoader{
+		paths: paths,
+		opts:  defaultLoadOptions(),
 	}
-
-	err = nodes.Resolve()
-	if err != nil {
-		return err
-	}
-
-	return nodes.Out()
 }
 
-func LoadDirFS(fsys fs.FS, dir string, opts ...func(*loadOptions)) (*Nodes, error) {
-	options := defaultLoadOptions()
+func WithOptions(opts ...func(*loadOptions)) *NodeLoader {
+	return (&NodeLoader{
+		paths: []string{},
+		opts:  defaultLoadOptions(),
+	}).Options(opts...)
+}
+
+func (l *NodeLoader) Load(paths ...string) *NodeLoader {
+	l.paths = append(l.paths, paths...)
+
+	return l
+}
+
+func (l *NodeLoader) Options(opts ...func(*loadOptions)) *NodeLoader {
 	for _, o := range opts {
-		o(options)
+		o(l.opts)
+	}
+
+	return l
+}
+
+func (l *NodeLoader) load() {
+	if l.nodes != nil || l.err != nil {
+		return
 	}
 
 	files := []NamedReader{}
 
-	err := fs.WalkDir(fsys, dir, func(path string, d fs.DirEntry, err error) error {
+	for _, path := range l.paths {
+		file, err := getNamedReader(path, l.opts)
 		if err != nil {
-			return err
-		}
-
-		if d.IsDir() || !IsYamlFile(path) || options.omitFunc(path) {
-			return nil
-		}
-
-		f, err := fsys.Open(path)
-		if err != nil {
-			return err
-		}
-
-		files = append(files, FsFileWrapper{f, path})
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return LoadReaders(files...)
-}
-
-func LoadDir(dir string, opts ...func(*loadOptions)) (*Nodes, error) {
-	readers, err := getDirReaders(dir, opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return LoadReaders(readers...)
-}
-
-func getDirReaders(dir string, opts ...func(*loadOptions)) ([]NamedReader, error) {
-	options := defaultLoadOptions()
-	for _, o := range opts {
-		o(options)
-	}
-
-	files := []NamedReader{}
-
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if d.IsDir() || !IsYamlFile(path) || options.omitFunc(path) {
-			return nil
-		}
-
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-
-		files = append(files, f)
-
-		return nil
-	})
-
-	return files, err
-}
-
-func LoadFile(file string) (*Nodes, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-
-	return LoadReaders(f)
-}
-
-func Load(paths []string, opts ...func(*loadOptions)) (*Nodes, error) {
-	files := []NamedReader{}
-
-	for _, path := range paths {
-		file, err := os.Open(path)
-		if err != nil {
-			return nil, err
+			l.err = err
+			return
 		}
 
 		fileInfo, err := file.Stat()
 		if err != nil {
-			return nil, err
+			l.err = err
+			return
 		}
 
 		if fileInfo.IsDir() {
-			readers, err := getDirReaders(path)
+			readers, err := getDirReaders(path, l.opts)
 			if err != nil {
-				return nil, err
+				l.err = err
+				return
 			}
 
 			files = append(files, readers...)
@@ -162,39 +73,57 @@ func Load(paths []string, opts ...func(*loadOptions)) (*Nodes, error) {
 		}
 	}
 
-	return LoadReaders(files...)
+	l.nodes, l.err = loadReaders(files...)
+	l.nodes.opts = l.opts
 }
-func LoadReaders(files ...NamedReader) (*Nodes, error) {
-	nodes := NewNodes()
 
-	for _, f := range files {
-		err := decoder.Init(f)
-		if err != nil {
-			return nil, err
-		}
+func (l *NodeLoader) Nodes() (*Nodes, error) {
+	l.load()
+	return l.nodes, l.err
+}
 
-		for {
-			node, err := decoder.Decode()
-			if err != nil {
-				// break the loop in case of EOF
-				if errors.Is(err, io.EOF) {
-					break
-				} else {
-					return nil, err
-				}
-			}
-
-			err = nodes.Push(NewNode(node, f.Name()))
-			if err != nil {
-				return nil, err
-			}
-		}
+func (l *NodeLoader) Resolve() *NodeLoader {
+	l.load()
+	if l.err != nil || l.resolved {
+		return l
 	}
 
-	return nodes, nil
+	err := l.nodes.Resolve()
+	if err != nil {
+		l.err = err
+		return l
+	}
+
+	l.resolved = true
+
+	return l
 }
 
-func IsYamlFile(file string) bool {
-	ext := filepath.Ext(file)
-	return ext == ".yml" || ext == ".yaml"
+func (l *NodeLoader) Error() error {
+	return l.err
+}
+
+func (l *NodeLoader) Out() error {
+	if err := l.Resolve().Error(); err != nil {
+		return err
+	}
+
+	return l.nodes.Out()
+}
+
+func (l *NodeLoader) Decode(i any) error {
+	if err := l.Resolve().Error(); err != nil {
+		return err
+	}
+
+	if len(l.nodes.outNodes) != 1 {
+		return errors.New("decoder operates on a single out node list, might change this later")
+	}
+
+	yn, err := l.nodes.outNodes[0].node.MarshalYAML()
+	if err != nil {
+		return err
+	}
+
+	return yn.Decode(i)
 }

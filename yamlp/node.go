@@ -47,7 +47,7 @@ func NewNode(cn *yqlib.CandidateNode, file string) *Node {
 	return n
 }
 
-func (n *Node) Resolve(ctx *ContextNode, vars map[string]*ContextNode) error {
+func (n *Node) Resolve(ctx *ContextNode, vars map[string]*ContextNode, opts *loadOptions) error {
 	merges := []*yqlib.CandidateNode{}
 	for _, tn := range n.tagNodes {
 		if tn.tag == "merge" {
@@ -59,6 +59,7 @@ func (n *Node) Resolve(ctx *ContextNode, vars map[string]*ContextNode) error {
 			Ctx:    ctx,
 			Node:   n,
 			Vars:   vars,
+			Opts:   opts,
 		})
 		if err != nil {
 			return err

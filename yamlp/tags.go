@@ -20,6 +20,7 @@ type ResolveContext struct {
 	Ctx    *ContextNode
 	Node   *Node
 	Vars   map[string]*ContextNode
+	Opts   *loadOptions
 }
 
 func AddTagResolver(tag string, resolver ResolveFunc, allowedKinds ...yqlib.Kind) {

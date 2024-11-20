@@ -122,7 +122,7 @@ func (e Exports) getExports(names []string) map[string]*ContextNode {
 
 	return exports
 }
-func (e *Exports) resolve() (*ContextNode, error) {
+func (e *Exports) resolve(opts *loadOptions) (*ContextNode, error) {
 	files, err := e.getResolveOrder()
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func (e *Exports) resolve() (*ContextNode, error) {
 		prevRef := NewContextNode(nil)
 		for _, ref := range e.files[file].refs {
 			exports := e.getExports(ref.GetImports())
-			err := ref.Resolve(prevRef, exports)
+			err := ref.Resolve(prevRef, exports, opts)
 			if err != nil {
 				return nil, err
 			}
@@ -148,7 +148,7 @@ func (e *Exports) resolve() (*ContextNode, error) {
 		}
 		for _, export := range e.files[file].exports {
 			exports := e.getExports(export.GetImports())
-			err := export.Resolve(prevRef, exports)
+			err := export.Resolve(prevRef, exports, opts)
 			if err != nil {
 				return nil, err
 			}

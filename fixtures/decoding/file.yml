@@ -1,0 +1,12 @@
+---
+key: abc
+val: whatever
+---
+key: aaa
+val: foo
+---
+key: bbb
+val: bar
+---
+key: ccc
+val: bla

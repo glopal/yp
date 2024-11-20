@@ -11,9 +11,11 @@ import (
 )
 
 type Nodes struct {
-	nodes   []*Node
-	exports *Exports
-	out     *Node
+	nodes    []*Node
+	exports  *Exports
+	out      *Node
+	outNodes []OutNodes
+	opts     *loadOptions
 }
 
 func NewNodes() *Nodes {
@@ -53,17 +55,24 @@ func (ns *Nodes) Push(n *Node) error {
 }
 
 func (ns *Nodes) Resolve() error {
-	exports, err := ns.exports.resolve()
+	exports, err := ns.exports.resolve(ns.opts)
 	if err != nil {
 		return err
 	}
 
 	for _, n := range ns.nodes {
-		err = n.Resolve(exports, nil)
+		err = n.Resolve(exports, nil, ns.opts)
 		if err != nil {
 			return err
 		}
 	}
+
+	outNodes, err := ns.resolveOut()
+	if err != nil {
+		return err
+	}
+
+	ns.outNodes = outNodes
 
 	return nil
 }
@@ -89,23 +98,18 @@ func (ns *Nodes) PrettyPrintYaml(w io.Writer) {
 }
 
 func (ns *Nodes) Out() error {
-	outNodes, err := ns.resolveOut()
-	if err != nil {
-		return err
-	}
-
 	prefs := yqlib.NewDefaultYamlPreferences()
 	prefs.UnwrapScalar = false
 	prefs.PrintDocSeparators = true
 	prefs.Indent = 2
 
-	for _, out := range outNodes {
+	for _, out := range ns.outNodes {
 		l := list.New()
 		prefs.ColorsEnabled = shouldColorize(out.file)
 		printer := yqlib.NewPrinter(yqlib.NewYamlEncoder(prefs), yqlib.NewSinglePrinterWriter(out.file))
 		defer out.file.Close()
 
-		for docIndex, cn := range out.nodes {
+		for docIndex, cn := range out.node.Content {
 			// setting the document index and parent to nil enables doc separator printing
 			cn.SetDocument(uint(docIndex))
 			cn.Parent = nil
@@ -113,7 +117,7 @@ func (ns *Nodes) Out() error {
 			l.PushBack(cn)
 		}
 
-		err = printer.PrintResults(l)
+		err := printer.PrintResults(l)
 		if err != nil {
 			return err
 		}
@@ -123,19 +127,22 @@ func (ns *Nodes) Out() error {
 }
 
 type OutNodes struct {
-	nodes []*yqlib.CandidateNode
-	file  *os.File
+	node *yqlib.CandidateNode
+	file *os.File
 }
 
 func (ns *Nodes) resolveOut() ([]OutNodes, error) {
 	if ns.out == nil {
 		return []OutNodes{{
-			nodes: ns.CandidateNodes(),
-			file:  os.Stdout,
+			node: &yqlib.CandidateNode{
+				Kind:    yqlib.SequenceNode,
+				Content: ns.CandidateNodes(),
+			},
+			file: os.Stdout,
 		}}, nil
 	}
 
-	err := ns.out.Resolve(NewOutContextNode(ns), nil)
+	err := ns.out.Resolve(NewOutContextNode(ns), nil, ns.opts)
 	if err != nil {
 		return nil, err
 	}
@@ -146,8 +153,8 @@ func (ns *Nodes) resolveOut() ([]OutNodes, error) {
 
 	if ns.out.CandidateNode.Kind == yqlib.SequenceNode {
 		return []OutNodes{{
-			nodes: ns.out.CandidateNode.Content,
-			file:  os.Stdout,
+			node: ns.out.CandidateNode,
+			file: os.Stdout,
 		}}, nil
 	}
 
@@ -169,8 +176,8 @@ func (ns *Nodes) resolveOut() ([]OutNodes, error) {
 		}
 
 		outNodes = append(outNodes, OutNodes{
-			file:  file,
-			nodes: ns.out.CandidateNode.Content[i+1].Content,
+			file: file,
+			node: ns.out.CandidateNode.Content[i+1],
 		})
 	}
 

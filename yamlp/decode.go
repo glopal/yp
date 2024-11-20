@@ -18,7 +18,7 @@ func Decode[T any](ns *Nodes) ([]T, error) {
 
 	decoded := *new([]T)
 
-	for _, n := range outNodes[0].nodes {
+	for _, n := range outNodes[0].node.Content {
 		yn, err := n.MarshalYAML()
 		if err != nil {
 			return nil, err

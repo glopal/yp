@@ -80,7 +80,7 @@ func resolveFile(dir, relPath string, rc ResolveContext) (*yqlib.CandidateNode, 
 		path = filepath.Join(dir, path)
 	}
 
-	ns, err := LoadFile(path)
+	ns, err := LoadFile(path, rc.Opts)
 	if err != nil {
 		return &yqlib.CandidateNode{
 			Kind: yqlib.ScalarNode,
@@ -102,7 +102,7 @@ func resolveFile(dir, relPath string, rc ResolveContext) (*yqlib.CandidateNode, 
 		}, nil
 	}
 
-	err = nodes[0].Resolve(rc.Ctx, nil)
+	err = nodes[0].Resolve(rc.Ctx, nil, rc.Opts)
 	if err != nil {
 		return nil, err
 	}

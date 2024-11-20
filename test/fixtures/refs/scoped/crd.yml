@@ -1,3 +1,0 @@
-name: test
-kind: example
-data: !yq $two.a
