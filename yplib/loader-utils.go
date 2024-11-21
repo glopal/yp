@@ -62,7 +62,15 @@ func getDirReaders(dir string, opts *loadOptions) ([]NamedReader, error) {
 			return err
 		}
 
-		if d.IsDir() || !IsYamlFile(path) || opts.omitFunc(path) {
+		if opts.omitFunc(path) {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+
+			return nil
+		}
+
+		if d.IsDir() || !IsYamlFile(path) {
 			return nil
 		}
 
