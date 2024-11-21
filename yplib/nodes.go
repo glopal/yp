@@ -148,7 +148,7 @@ func (ns *Nodes) resolveOut() ([]OutNodes, error) {
 		}}, nil
 	}
 
-	err := ns.out.Resolve(NewOutContextNode(ns), nil, ns.opts)
+	err := ns.out.Resolve(NewOutContext(ns))
 	if err != nil {
 		return nil, err
 	}

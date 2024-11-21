@@ -23,27 +23,15 @@ func NewContextNode(n *yqlib.CandidateNode) *ContextNode {
 	}
 }
 
-func NewOutContextNode(nodes *Nodes) *ContextNode {
-	ctx := &ContextNode{
-		candidateNode: &yqlib.CandidateNode{
-			Kind: yqlib.MappingNode,
-		},
-	}
-
-	ctx.candidateNode.AddKeyValueChild(&yqlib.CandidateNode{
-		Kind:  yqlib.ScalarNode,
-		Value: "nodes",
-	}, &yqlib.CandidateNode{
-		Kind:    yqlib.SequenceNode,
-		Content: nodes.CandidateNodes(),
-	})
-
-	ctx.candidateNode.AddKeyValueChild(&yqlib.CandidateNode{
-		Kind:  yqlib.ScalarNode,
-		Value: "ctx",
-	}, nodes.exports.contextNode.candidateNode)
-
-	return ctx
+func NewOutContext(nodes *Nodes) (*ContextNode, map[string]*ContextNode, *loadOptions) {
+	return &ContextNode{
+			candidateNode: &yqlib.CandidateNode{
+				Kind:    yqlib.SequenceNode,
+				Content: nodes.CandidateNodes(),
+			},
+		}, map[string]*ContextNode{
+			"ctx": nodes.exports.contextNode,
+		}, nodes.opts
 }
 
 func (n *ContextNode) Merge(rhs *yqlib.CandidateNode) (*ContextNode, error) {
