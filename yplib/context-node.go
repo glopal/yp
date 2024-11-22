@@ -2,13 +2,28 @@ package yplib
 
 import (
 	"container/list"
+	"errors"
+	"os"
 
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
+	"gopkg.in/op/go-logging.v1"
 )
 
 type ContextNode struct {
 	candidateNode *yqlib.CandidateNode
 	decoded       interface{}
+}
+
+var cleanMergesExpr *yqlib.ExpressionNode
+
+func init() {
+	// disable yqlib debug logging
+	leveled := logging.AddModuleLevel(logging.NewLogBackend(os.Stderr, "", 0))
+	leveled.SetLevel(logging.ERROR, "")
+	yqlib.GetLogger().SetBackend(leveled)
+
+	yqlib.InitExpressionParser()
+	cleanMergesExpr, _ = yqlib.ExpressionParser.ParseExpression(`(... | select(tag == "!!merge")) |= (. tag =  "!!str" | . style = "folded")`)
 }
 
 func NewContextNode(n *yqlib.CandidateNode) *ContextNode {
@@ -60,10 +75,16 @@ func (n *ContextNode) Interface() (interface{}, error) {
 		return n.decoded, nil
 	}
 
-	yn, err := n.candidateNode.MarshalYAML()
+	cleaned, err := cleanMerges(n.candidateNode)
 	if err != nil {
 		return nil, err
 	}
+
+	yn, err := cleaned.MarshalYAML()
+	if err != nil {
+		return nil, err
+	}
+
 	var i interface{}
 	err = yn.Decode(&i)
 	if err != nil {
@@ -73,6 +94,23 @@ func (n *ContextNode) Interface() (interface{}, error) {
 	n.decoded = i
 
 	return i, nil
+}
+
+func cleanMerges(n *yqlib.CandidateNode) (*yqlib.CandidateNode, error) {
+	context, err := yqlib.NewDataTreeNavigator().GetMatchingNodes(createMergeContext(n), cleanMergesExpr)
+	if err != nil {
+		return nil, err
+	}
+	if context.MatchingNodes.Len() == 0 {
+		return nil, errors.New("Unable to resolve")
+	}
+
+	cleaned, ok := context.MatchingNodes.Front().Value.(*yqlib.CandidateNode)
+	if !ok {
+		return nil, errors.New("failed to clean merges")
+	}
+
+	return cleaned, nil
 }
 
 func (n *ContextNode) ForEachNode(iter func(vars map[string]*ContextNode)) {

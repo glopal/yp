@@ -61,7 +61,10 @@ func (ns *Nodes) Resolve() error {
 	}
 
 	for _, n := range ns.nodes {
-		err = n.Resolve(exports, nil, ns.opts)
+		vars := map[string]*ContextNode{}
+		vars["self"] = NewContextNode(n.CandidateNode)
+
+		err = n.Resolve(exports, vars, ns.opts)
 		if err != nil {
 			return err
 		}

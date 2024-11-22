@@ -64,9 +64,12 @@ func processVariables(vars map[string]*ContextNode) (string, template.FuncMap) {
 
 	for name, node := range vars {
 		declTmpl += fmt.Sprintf("{{$%s := %s}}", name, name)
-		funcMap[name] = func() interface{} {
-			val, _ := node.Interface()
-			return val
+		funcMap[name] = func() (interface{}, error) {
+			val, err := node.Interface()
+			if err != nil {
+				return nil, err
+			}
+			return val, nil
 		}
 	}
 

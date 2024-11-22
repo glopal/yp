@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
-	"gopkg.in/op/go-logging.v1"
 )
 
 var decoder = yqlib.NewYamlDecoder(yqlib.YamlPreferences{
@@ -19,13 +18,6 @@ var decoder = yqlib.NewYamlDecoder(yqlib.YamlPreferences{
 	UnwrapScalar:                true,
 	EvaluateTogether:            false,
 })
-
-func init() {
-	// disable yqlib debug logging
-	leveled := logging.AddModuleLevel(logging.NewLogBackend(os.Stderr, "", 0))
-	leveled.SetLevel(logging.ERROR, "")
-	yqlib.GetLogger().SetBackend(leveled)
-}
 
 type NamedReader interface {
 	fs.File
