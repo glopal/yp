@@ -157,6 +157,8 @@ func (e *Exports) resolve(opts *loadOptions) (*ContextNode, error) {
 
 	if dot, exists := e.exports["."]; exists {
 		e.contextNode = NewContextNode(dot.CandidateNode)
+		delete(e.exports, ".")
+		e.contextNode.Merge(createExportMapNode(e.exports))
 	} else {
 		e.contextNode = NewContextNode(createExportMapNode(e.exports))
 	}
