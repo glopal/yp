@@ -9,9 +9,8 @@ require (
 )
 
 require (
-	github.com/approvals/go-approval-tests v0.0.0-20240417152556-434b9105e958
 	github.com/heimdalr/dag v1.5.0
-	github.com/spf13/afero v1.11.0
+	github.com/spf13/cobra v1.8.1
 	github.com/wk8/go-ordered-map/v2 v2.1.9-0.20240816141633-0a40785b4f41
 )
 
@@ -41,7 +40,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
-	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	golang.org/x/net v0.31.0 // indirect

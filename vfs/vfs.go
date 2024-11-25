@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -10,8 +11,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type WriteThruVFS[T Coder[T]] interface {
+	CreateDir(string) error
+	Rename(string, string) error
+	Write(T, string) error
+	Delete(string) error
+}
+
 type Coder[T any] interface {
-	Decode([]byte) error
+	New() T
+	Decode([]byte) (T, error)
 	Encode() ([]byte, error)
 	IsDir() bool
 }
@@ -20,29 +29,8 @@ type VFS[T Coder[T]] struct {
 	*orderedmap.OrderedMap[string, T]
 }
 
-type VFD struct {
-	Metadata map[string]interface{} `json:"metadata,omitempty"`
-	Content  *string                `yaml:"content,omitempty"`
-}
-
-func (vfd *VFD) IsDir() bool {
-	return vfd.Content == nil
-}
-
 func NewVFS[T Coder[T]]() *VFS[T] {
 	return &VFS[T]{orderedmap.New[string, T]()}
-}
-
-type TestSuiteFs struct {
-	input    *VFS[*VFS[Content]]
-	expected *VFS[*VFS[Content]]
-}
-
-func NewTestSuiteFs() *TestSuiteFs {
-	return &TestSuiteFs{
-		input:    NewVFS[*VFS[Content]](),
-		expected: NewVFS[*VFS[Content]](),
-	}
 }
 
 func (vfs *VFS[T]) Decode([]byte) error {
@@ -55,39 +43,133 @@ func (vfs *VFS[T]) IsDir() bool {
 	return vfs.OrderedMap == nil
 }
 
-func (vfs *VFS[T]) Push(newKey string, val T) (T, bool) {
-	if item, exists := vfs.Get(newKey); exists {
-		return item, false
+func (vfs *VFS[T]) Exists(key string) bool {
+	_, exists := vfs.Get(key)
+	return exists
+}
+
+func getParentKey(key string) string {
+	pathItems := strings.Split(key, "/")
+	if len(pathItems) <= 1 {
+		return ""
 	}
 
-	afterKey := ""
+	return strings.Join(pathItems[:len(pathItems)-1], "/")
+}
+func (vfs *VFS[T]) AtOrOldest(key string) *orderedmap.Pair[string, T] {
+	pair := vfs.AfterOrOldest(key)
+	prev := pair.Prev()
 
-	for curKey := range vfs.KeysFromOldest() {
-		val := strings.Compare(curKey, newKey)
+	if prev != nil {
+		return prev
+	}
+
+	return pair
+}
+
+func (vfs *VFS[T]) AfterOrOldest(key string) *orderedmap.Pair[string, T] {
+	if key == "" {
+		return vfs.Oldest()
+	}
+
+	pair := vfs.GetPair(key)
+	if pair == nil {
+		return vfs.Oldest()
+	}
+
+	return pair.Next()
+}
+
+func (vfs *VFS[T]) Push(newKey string, val T) bool {
+	if vfs.Exists(newKey) {
+		return true
+	}
+
+	// recursively create parent directories if they don't exist
+	parentKey := getParentKey(newKey)
+	if parentKey != "" && !vfs.Exists(parentKey) {
+		vfs.Push(parentKey, *new(T))
+	}
+
+	for cur := vfs.AfterOrOldest(parentKey); cur != nil; cur = cur.Next() {
+		val := strings.Compare(cur.Key, newKey)
 
 		if val > 0 { // curKey > newKey
 			break
 		} else if val < 0 { // curKey < newKey
-			afterKey = curKey
+			parentKey = cur.Key
 		}
 	}
 
-	v, ok := vfs.Set(newKey, val)
-	if !ok {
-		return v, false
-	}
+	vfs.Set(newKey, val)
 
-	var err error
-	if afterKey == "" {
-		err = vfs.MoveToFront(newKey)
+	if parentKey == "" {
+		vfs.MoveToFront(newKey)
 	} else {
-		err = vfs.MoveAfter(newKey, afterKey)
-	}
-	if err != nil {
-		return *new(T), false
+		vfs.MoveAfter(newKey, parentKey)
 	}
 
-	return v, true
+	return false
+}
+
+func (vfs *VFS[T]) Delete(key string) {
+	pair := vfs.GetPair(key)
+	if pair == nil {
+		return
+	}
+
+	keyToDeletes := []string{key}
+
+	for cur := pair.Next(); cur != nil; cur = cur.Next() {
+		if !strings.HasPrefix(cur.Key, key) {
+			break
+		}
+
+		keyToDeletes = append(keyToDeletes, cur.Key)
+	}
+
+	for _, k := range keyToDeletes {
+		vfs.OrderedMap.Delete(k)
+	}
+}
+
+func (vfs *VFS[T]) Rename(orgKey string, newKey string) error {
+	if vfs.Exists(newKey) {
+		return fmt.Errorf("can't rename '%s' to existing key '%s'", orgKey, newKey)
+	}
+
+	pair := vfs.GetPair(orgKey)
+	if pair == nil {
+		return fmt.Errorf("'%s' does not exists", orgKey)
+	}
+
+	deletes := []string{orgKey}
+	newPairs := []*orderedmap.Pair[string, T]{{
+		Key:   newKey,
+		Value: pair.Value,
+	}}
+
+	if pair.Value.IsDir() {
+		for cur := pair.Next(); cur != nil; cur = cur.Next() {
+			if strings.HasPrefix(cur.Key, orgKey) {
+				deletes = append(deletes, cur.Key)
+				newPairs = append(newPairs, &orderedmap.Pair[string, T]{
+					Key:   newKey + strings.TrimPrefix(cur.Key, orgKey),
+					Value: cur.Value,
+				})
+			}
+		}
+	}
+
+	for _, d := range deletes {
+		vfs.OrderedMap.Delete(d)
+	}
+
+	for _, p := range newPairs {
+		vfs.Push(p.Key, p.Value)
+	}
+
+	return nil
 }
 
 func (vfs *VFS[T]) ToYaml() ([]byte, error) {
@@ -144,9 +226,11 @@ func (vfs *VFS[T]) UnmarshalDir(dir string, trim int) error {
 				return err
 			}
 
-			var item T
+			item := *new(T)
+			item = item.New()
 
-			err = item.Decode(data)
+			err = yaml.Unmarshal(data, &item)
+			// item, err = item.Decode(data)
 			if err != nil {
 				return err
 			}
