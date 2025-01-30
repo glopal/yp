@@ -11,7 +11,6 @@ import (
 
 func init() {
 	AddTagResolver("!inc/file", incFileResolver)
-	AddTagResolver("!inc/file/raw", incFileResolver)
 	AddTagResolver("!inc/file/flatten", incFileFlattenResolver)
 	AddTagResolver("!inc/files", incFilesResolver, yqlib.SequenceNode)
 }
