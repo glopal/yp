@@ -1,45 +1,96 @@
-package main
+package vfs
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/afero"
+	orderedmap "github.com/wk8/go-ordered-map/v2"
 	"gopkg.in/yaml.v3"
 )
 
 type TestFs struct {
-	Input    *VFS[*Content] `yaml:"input"`
-	Expected *VFS[*Content] `yaml:"expected"`
+	Input  *VFS[string] `yaml:"input"`
+	Output *VFS[string] `yaml:"output"`
 }
 
-func NewTestFs() *TestFs {
-	return &TestFs{
-		Input:    NewVFS[*Content](),
-		Expected: NewVFS[*Content](),
+func NewTestFs() (*TestFs, error) {
+	t := &TestFs{
+		Input:  NewVFS[string](),
+		Output: NewVFS[string](),
 	}
+
+	return t, t.Input.InitMemMapFs()
 }
-func (t *TestFs) New() *TestFs {
-	return NewTestFs()
+func (t *TestFs) SetSyncHook(syncHook func() error) {
+	t.Input.OnPushDir = func(path string) error {
+		err := t.Input.Fs.MkdirAll(path, 0755)
+		if err != nil {
+			return err
+		}
+		return syncHook()
+	}
+	t.Input.OnPush = func(p *orderedmap.Pair[string, FD[string]]) error {
+		fmt.Println(t.Input)
+		err := afero.WriteFile(t.Input.Fs, p.Key, []byte(p.Value.content), 0755)
+		if err != nil {
+			return err
+		}
+
+		return syncHook()
+	}
+	t.Input.OnRename = func(oldPath, newPath string) error {
+		err := t.Input.Fs.Rename(oldPath, newPath)
+		if err != nil {
+			return err
+		}
+
+		return syncHook()
+	}
+	t.Input.OnDelete = func(path string) error {
+		err := t.Input.Fs.RemoveAll(path)
+		if err != nil {
+			return err
+		}
+
+		return syncHook()
+	}
+
+	t.Output.OnPushDir = t.Input.OnPushDir
+	t.Output.OnPush = t.Input.OnPush
+	t.Output.OnRename = t.Input.OnRename
+	t.Output.OnDelete = t.Input.OnDelete
 }
 
-// func (t *TestFs) UnmarshalYAML(node *yaml.Node) error {
-// 	t = NewTestFs()
+func (t *TestFs) UnmarshalYAML(node *yaml.Node) error {
+	type alias TestFs
+	tfs, err := NewTestFs()
+	if err != nil {
+		return err
+	}
+	tmp := alias(*tfs)
 
-// 	return nil
-// }
+	err = node.Decode(&tmp)
+	if err != nil {
+		return err
+	}
 
-func (t *TestFs) Decode(data []byte) (*TestFs, error) {
-	nt := NewTestFs()
+	*t = TestFs(tmp)
 
-	return nt, yaml.Unmarshal(data, nt)
+	return t.Input.InitMemMapFs()
 }
-func (t *TestFs) Encode() ([]byte, error) {
-	return yaml.Marshal(t)
-}
-func (t *TestFs) IsDir() bool {
-	return t.Input == nil
+
+func (t *TestFs) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Input  map[string]JsTreeNode `json:"input"`
+		Output map[string]JsTreeNode `json:"output"`
+	}{
+		Input:  t.Input.ToJsTreeMap(),
+		Output: t.Output.ToJsTreeMap(),
+	})
 }
 
 type TestSuiteFs struct {
@@ -50,133 +101,49 @@ type TestSuiteFs struct {
 func NewTestSuiteFs(dir string) (*TestSuiteFs, error) {
 	tfs := NewVFS[*TestFs]()
 
+	osPath := func(p string) string {
+		return filepath.Join(dir, p)
+	}
+	tfs.OnPushDir = func(path string) error {
+		return os.MkdirAll(osPath(path), 0755)
+	}
+
+	tfs.OnPush = func(p *orderedmap.Pair[string, FD[*TestFs]]) error {
+		data, err := yaml.Marshal(p.Value.content)
+		if err != nil {
+			return err
+		}
+
+		return os.WriteFile(osPath(p.Key), data, 0755)
+	}
+
+	tfs.OnRename = func(oldPath, newPath string) error {
+		return os.Rename(osPath(oldPath), osPath(newPath))
+	}
+
+	tfs.OnDelete = func(path string) error {
+		return os.RemoveAll(osPath(path))
+	}
+
+	tfs.OnChild = func(key string) error {
+		return tfs.OnPush(tfs.GetPair(key))
+	}
+
+	tfs.DecorateFileNode = func(node *JsTreeNode) {
+		node.Text = strings.TrimSuffix(node.Text, ".yml")
+	}
+
 	err := tfs.UnmarshalDir(dir, len(strings.Split(dir, "/")))
 	if err != nil {
 		return nil, err
 	}
+
 	return &TestSuiteFs{
 		tfs,
 		dir,
 	}, nil
 }
 
-func (ts *TestSuiteFs) CreateDir(path string) error {
-	if err := os.MkdirAll(ts.path(path), 0755); err != nil {
-		return err
-	}
-
-	ts.Push(path, &TestFs{})
-
-	return nil
-}
-
-func (ts *TestSuiteFs) Rename(oldPath, newPath string) error {
-	if err := os.Rename(ts.path(oldPath), ts.path(newPath)); err != nil {
-		return err
-	}
-
-	return ts.VFS.Rename(oldPath, newPath)
-}
-
-func (ts *TestSuiteFs) Write(item *TestFs, path string) error {
-	data, err := item.Encode()
-	if err != nil {
-		return err
-	}
-
-	parent := getParentKey(path)
-	if !ts.Exists(parent) {
-		err = ts.CreateDir(parent)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err := os.WriteFile(ts.path(path), data, 0755); err != nil {
-		return err
-	}
-
-	ts.Push(path, item)
-
-	return nil
-}
-
-func (ts *TestSuiteFs) WriteInput(testPath, inputPath, content string) error {
-	t, exists := ts.Get(testPath)
-	if !exists {
-		t = NewTestFs()
-	}
-
-	c := &Content{&content}
-	exists = t.Input.Push(inputPath, c)
-	if exists {
-		t.Input.Set(inputPath, c)
-	}
-
-	return ts.Write(t, testPath)
-}
-
-func (ts *TestSuiteFs) Delete(path string) error {
-	if err := os.RemoveAll(ts.path(path)); err != nil {
-		return err
-	}
-
-	ts.VFS.Delete(path)
-
-	return nil
-}
-
-func (ts *TestSuiteFs) path(path string) string {
-	return filepath.Join(ts.root, path)
-}
-
-type FD[T any] struct {
-	IsDir   bool
-	Content T
-}
-
-func (fd *FD[T]) UnmarshalYAML(node *yaml.Node) (err error) {
-	return nil
-}
-
-type Content struct {
-	*string
-}
-
-func (c *Content) UnmarshalYAML(node *yaml.Node) (err error) {
-	fmt.Println(node.Kind, node.Tag, node.Value)
-	return nil
-}
-
-func (c *Content) MarshalText() (text []byte, err error) {
-	return []byte(*c.string), nil
-}
-
-// func (c *Content) MarshalYAML() (interface{}, error) {
-// 	fmt.Println("MARSHAL: ", c)
-// 	if c.string != nil {
-// 		node := yaml.Node{
-// 			Kind:  yaml.ScalarNode,
-// 			Tag:   "!!str",
-// 			Value: "TEST",
-// 		}
-// 		return &node, nil
-// 	}
-
-// 	return nil, nil
-// }
-
-func (c *Content) New() *Content {
-	return &Content{}
-}
-func (c *Content) Decode(b []byte) (*Content, error) {
-	str := string(b)
-
-	return &Content{&str}, nil
-}
-func (c *Content) Encode() ([]byte, error) {
-	return nil, nil
-}
-func (c *Content) IsDir() bool {
-	return c == nil
+func (ts *TestSuiteFs) DecorateFileNode(node *JsTreeNode) {
+	node.Text = strings.TrimSuffix(node.Text, ".yml")
 }

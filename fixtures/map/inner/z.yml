@@ -1,4 +1,5 @@
-a: 1
+a:
+ inner: 1
 b: 2
 list:
   - 1

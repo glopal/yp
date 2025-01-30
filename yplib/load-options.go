@@ -3,14 +3,16 @@ package yplib
 import (
 	"io"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spf13/afero"
 )
 
 type loadOptions struct {
 	omitFunc func(string) bool
-	fs       fs.FS
+	ifs      fs.FS
+	os       afero.Fs
 	writer   io.Writer
 }
 
@@ -19,13 +21,19 @@ func defaultLoadOptions() *loadOptions {
 		omitFunc: func(s string) bool {
 			return false
 		},
-		fs: os.DirFS("."),
+		os: afero.NewOsFs(),
 	}
 }
 
 func WithFS(fsys fs.FS) func(*loadOptions) {
 	return func(lo *loadOptions) {
-		lo.fs = fsys
+		lo.ifs = fsys
+	}
+}
+
+func WithOutputFS(fsys afero.Fs) func(*loadOptions) {
+	return func(lo *loadOptions) {
+		lo.os = fsys
 	}
 }
 
@@ -50,14 +58,14 @@ func OmitDotFiles() func(*loadOptions) {
 		}
 	}
 }
-func (lo *loadOptions) isOSFS() bool {
-	return lo.fs == nil
+func (lo *loadOptions) isInputOS() bool {
+	return lo.ifs == nil
 }
 
 func (lo *loadOptions) walkDir(root string, walkFunc fs.WalkDirFunc) error {
-	if lo.isOSFS() {
+	if lo.isInputOS() {
 		return filepath.WalkDir(root, walkFunc)
 	}
 
-	return fs.WalkDir(lo.fs, root, walkFunc)
+	return fs.WalkDir(lo.ifs, root, walkFunc)
 }

@@ -1,4 +1,4 @@
-package main
+package vfs
 
 import (
 	"fmt"
@@ -7,40 +7,116 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/afero"
 	orderedmap "github.com/wk8/go-ordered-map/v2"
 	"gopkg.in/yaml.v3"
 )
 
-type WriteThruVFS[T Coder[T]] interface {
-	CreateDir(string) error
-	Rename(string, string) error
-	Write(T, string) error
-	Delete(string) error
+type ParentSyncer interface {
+	SetSyncHook(func() error)
 }
 
-type Coder[T any] interface {
-	New() T
-	Decode([]byte) (T, error)
-	Encode() ([]byte, error)
-	IsDir() bool
+type FD[T any] struct {
+	isFile  bool
+	content T
 }
 
-type VFS[T Coder[T]] struct {
-	*orderedmap.OrderedMap[string, T]
+func (fd FD[T]) Bytes() ([]byte, error) {
+	return []byte(fmt.Sprintf("%v", fd.content)), nil
 }
 
-func NewVFS[T Coder[T]]() *VFS[T] {
-	return &VFS[T]{orderedmap.New[string, T]()}
+func NewFile[T any](content T) FD[T] {
+	return FD[T]{
+		isFile:  true,
+		content: content,
+	}
 }
 
-func (vfs *VFS[T]) Decode([]byte) error {
+func Decorate[T any](key string, item *FD[T], onChild func(string) error) {
+	var i interface{} = item.content
+	syncer, ok := i.(ParentSyncer)
+	if !ok {
+		return
+	}
+
+	syncer.SetSyncHook(func() error {
+		return onChild(key)
+	})
+
+	content, _ := syncer.(T)
+	item.content = content
+}
+
+func (fd FD[T]) IsDir() bool {
+	return !fd.isFile
+}
+
+func (fd *FD[T]) UnmarshalYAML(node *yaml.Node) (err error) {
+	if node.Kind == yaml.MappingNode && len(node.Content) == 0 {
+		return nil
+	}
+
+	fd.isFile = true
+	content := *new(T)
+
+	err = node.Decode(&content)
+	if err != nil {
+		return err
+	}
+	fd.content = content
+
 	return nil
+
 }
-func (vfs *VFS[T]) Encode() ([]byte, error) {
-	return nil, nil
+
+func (fd FD[T]) MarshalYAML() (interface{}, error) {
+	if fd.IsDir() {
+		return yaml.Node{
+			Kind: yaml.MappingNode,
+		}, nil
+	}
+
+	var node yaml.Node
+	err := node.Encode(fd.content)
+
+	return node, err
 }
-func (vfs *VFS[T]) IsDir() bool {
-	return vfs.OrderedMap == nil
+
+type VFS[T any] struct {
+	*orderedmap.OrderedMap[string, FD[T]]
+	OnPushDir        func(string) error
+	OnPush           func(*orderedmap.Pair[string, FD[T]]) error
+	OnRename         func(string, string) error
+	OnDelete         func(string) error
+	OnChild          func(string) error
+	DecorateFileNode func(node *JsTreeNode)
+	Fs               afero.Fs
+}
+
+func NewVFS[T any]() *VFS[T] {
+	return &VFS[T]{
+		orderedmap.New[string, FD[T]](),
+		func(path string) error {
+			return nil
+		},
+		func(*orderedmap.Pair[string, FD[T]]) error {
+			return nil
+		},
+		func(string, string) error {
+			return nil
+		},
+		func(string) error {
+			return nil
+		},
+		nil,
+		func(node *JsTreeNode) {},
+		nil,
+	}
+}
+
+func (vfs *VFS[T]) Get(key string) (T, bool) {
+	item, exists := vfs.OrderedMap.Get(key)
+	return item.content, exists
 }
 
 func (vfs *VFS[T]) Exists(key string) bool {
@@ -56,18 +132,8 @@ func getParentKey(key string) string {
 
 	return strings.Join(pathItems[:len(pathItems)-1], "/")
 }
-func (vfs *VFS[T]) AtOrOldest(key string) *orderedmap.Pair[string, T] {
-	pair := vfs.AfterOrOldest(key)
-	prev := pair.Prev()
 
-	if prev != nil {
-		return prev
-	}
-
-	return pair
-}
-
-func (vfs *VFS[T]) AfterOrOldest(key string) *orderedmap.Pair[string, T] {
+func (vfs *VFS[T]) AtOrOldest(key string) *orderedmap.Pair[string, FD[T]] {
 	if key == "" {
 		return vfs.Oldest()
 	}
@@ -77,45 +143,112 @@ func (vfs *VFS[T]) AfterOrOldest(key string) *orderedmap.Pair[string, T] {
 		return vfs.Oldest()
 	}
 
-	return pair.Next()
+	return pair
 }
 
-func (vfs *VFS[T]) Push(newKey string, val T) bool {
+func (vfs *VFS[T]) PushDir(path string) error {
+	if path == "" || vfs.Exists(path) {
+		return nil
+	}
+
+	paths := []string{}
+	parent := path
+
+	for {
+		paths = append(paths, parent)
+		parent = getParentKey(parent)
+		if parent == "" {
+			break
+		}
+
+		if vfs.Exists(parent) {
+			break
+		}
+	}
+
+	parent = vfs.getAfterKey(paths[len(paths)-1], parent)
+
+	for i := len(paths) - 1; i >= 0; i-- {
+		key := paths[i]
+		vfs.Set(key, FD[T]{})
+
+		if parent == "" {
+			err := vfs.MoveToFront(key)
+			if err != nil {
+				return err
+			}
+		} else {
+			err := vfs.MoveAfter(key, parent)
+			if err != nil {
+				return err
+			}
+		}
+
+		parent = key
+	}
+
+	return vfs.OnPushDir(path)
+}
+
+func (vfs *VFS[T]) Push(newKey string, val T) error {
 	if vfs.Exists(newKey) {
-		return true
+		pair := vfs.GetPair(newKey)
+		pair.Value.content = val
+
+		return vfs.OnPush(pair)
 	}
 
-	// recursively create parent directories if they don't exist
 	parentKey := getParentKey(newKey)
-	if parentKey != "" && !vfs.Exists(parentKey) {
-		vfs.Push(parentKey, *new(T))
+	vfs.PushDir(parentKey)
+
+	parentKey = vfs.getAfterKey(newKey, parentKey)
+
+	f := NewFile(val)
+	Decorate(newKey, &f, vfs.OnChild)
+	vfs.Set(newKey, f)
+
+	if parentKey == "" {
+		err := vfs.MoveToFront(newKey)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := vfs.MoveAfter(newKey, parentKey)
+		if err != nil {
+			return err
+		}
 	}
 
-	for cur := vfs.AfterOrOldest(parentKey); cur != nil; cur = cur.Next() {
+	return vfs.OnPush(vfs.GetPair(newKey))
+}
+
+func (vfs *VFS[T]) getAfterKey(newKey string, startKey string) string {
+	afterKey := ""
+	start := vfs.AtOrOldest(startKey)
+	if start == nil {
+		return ""
+	}
+	if start.Next() == nil {
+		return start.Key
+	}
+
+	for cur := vfs.AtOrOldest(startKey); cur != nil; cur = cur.Next() {
 		val := strings.Compare(cur.Key, newKey)
 
 		if val > 0 { // curKey > newKey
 			break
 		} else if val < 0 { // curKey < newKey
-			parentKey = cur.Key
+			afterKey = cur.Key
 		}
 	}
 
-	vfs.Set(newKey, val)
-
-	if parentKey == "" {
-		vfs.MoveToFront(newKey)
-	} else {
-		vfs.MoveAfter(newKey, parentKey)
-	}
-
-	return false
+	return afterKey
 }
 
-func (vfs *VFS[T]) Delete(key string) {
+func (vfs *VFS[T]) Delete(key string) error {
 	pair := vfs.GetPair(key)
 	if pair == nil {
-		return
+		return nil
 	}
 
 	keyToDeletes := []string{key}
@@ -131,6 +264,8 @@ func (vfs *VFS[T]) Delete(key string) {
 	for _, k := range keyToDeletes {
 		vfs.OrderedMap.Delete(k)
 	}
+
+	return vfs.OnDelete(key)
 }
 
 func (vfs *VFS[T]) Rename(orgKey string, newKey string) error {
@@ -143,8 +278,13 @@ func (vfs *VFS[T]) Rename(orgKey string, newKey string) error {
 		return fmt.Errorf("'%s' does not exists", orgKey)
 	}
 
+	parent := ""
+	if prev := pair.Prev(); prev != nil {
+		parent = prev.Key
+	}
+
 	deletes := []string{orgKey}
-	newPairs := []*orderedmap.Pair[string, T]{{
+	newPairs := []*orderedmap.Pair[string, FD[T]]{{
 		Key:   newKey,
 		Value: pair.Value,
 	}}
@@ -153,7 +293,7 @@ func (vfs *VFS[T]) Rename(orgKey string, newKey string) error {
 		for cur := pair.Next(); cur != nil; cur = cur.Next() {
 			if strings.HasPrefix(cur.Key, orgKey) {
 				deletes = append(deletes, cur.Key)
-				newPairs = append(newPairs, &orderedmap.Pair[string, T]{
+				newPairs = append(newPairs, &orderedmap.Pair[string, FD[T]]{
 					Key:   newKey + strings.TrimPrefix(cur.Key, orgKey),
 					Value: cur.Value,
 				})
@@ -166,27 +306,56 @@ func (vfs *VFS[T]) Rename(orgKey string, newKey string) error {
 	}
 
 	for _, p := range newPairs {
-		vfs.Push(p.Key, p.Value)
+		key := p.Key
+		vfs.Set(key, p.Value)
+
+		if parent == "" {
+			err := vfs.MoveToFront(key)
+			if err != nil {
+				return err
+			}
+		} else {
+			err := vfs.MoveAfter(key, parent)
+			if err != nil {
+				return err
+			}
+		}
+
+		parent = key
 	}
 
-	return nil
+	return vfs.OnRename(orgKey, newKey)
 }
 
 func (vfs *VFS[T]) ToYaml() ([]byte, error) {
 	return yaml.Marshal(vfs)
 }
 
-func (vfs *VFS[T]) UnmarshalYaml(file string) error {
-	data, err := os.ReadFile(file)
-	if err != nil {
-		return err
-	}
+func UnmarshalFs(fsys fs.FS) (*VFS[string], error) {
+	vfs := NewVFS[string]()
+	err := fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if path == "." {
+			return nil
+		}
 
-	return yaml.Unmarshal(data, vfs)
-}
+		if !d.IsDir() {
+			data, err := fs.ReadFile(fsys, path)
+			if err != nil {
+				return err
+			}
 
-func (vfs *VFS[T]) UnmarshalYamlString(data string) error {
-	return yaml.Unmarshal([]byte(data), vfs)
+			vfs.Set(path, FD[string]{isFile: true, content: string(data)})
+		} else {
+			vfs.Set(path, FD[string]{})
+		}
+
+		return nil
+	})
+
+	return vfs, err
 }
 
 func (vfs *VFS[T]) UnmarshalDir(dir string, trim int) error {
@@ -205,7 +374,7 @@ func (vfs *VFS[T]) UnmarshalDir(dir string, trim int) error {
 			}
 			increment += dirItem
 
-			vfs.Set(increment, *new(T))
+			vfs.Set(increment, FD[T]{})
 		}
 	}
 
@@ -226,8 +395,7 @@ func (vfs *VFS[T]) UnmarshalDir(dir string, trim int) error {
 				return err
 			}
 
-			item := *new(T)
-			item = item.New()
+			item := NewFile(*new(T))
 
 			err = yaml.Unmarshal(data, &item)
 			// item, err = item.Decode(data)
@@ -235,9 +403,11 @@ func (vfs *VFS[T]) UnmarshalDir(dir string, trim int) error {
 				return err
 			}
 
+			Decorate(vPath, &item, vfs.OnChild)
+
 			vfs.Set(vPath, item)
 		} else {
-			vfs.Set(vPath, *new(T))
+			vfs.Set(vPath, FD[T]{})
 		}
 
 		return nil
@@ -246,167 +416,26 @@ func (vfs *VFS[T]) UnmarshalDir(dir string, trim int) error {
 	return err
 }
 
-// func (vfs VFS) ToMemMapFs() (afero.Fs, error) {
-// 	afs := afero.NewMemMapFs()
+func (vfs *VFS[T]) InitMemMapFs() error {
+	vfs.Fs = afero.NewMemMapFs()
 
-// 	for path, vfd := range vfs.omap.FromOldest() {
-// 		if vfd.IsDir() {
-// 			err := afs.MkdirAll(path, 0755)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 		} else {
-// 			if err := afero.WriteFile(afs, path, []byte(*vfd.Content), 0755); err != nil {
-// 				return nil, err
-// 			}
-// 		}
-// 	}
+	for path, vfd := range vfs.FromOldest() {
+		if vfd.IsDir() {
+			err := vfs.Fs.MkdirAll(path, 0755)
+			if err != nil {
+				return err
+			}
+		} else {
+			data, err := vfd.Bytes()
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(data))
+			if err := afero.WriteFile(vfs.Fs, path, data, 0755); err != nil {
+				return err
+			}
+		}
+	}
 
-// 	return afs, nil
-// }
-
-// func (vfs VFS) ToJtreeMap() (*orderedmap.OrderedMap[string, *JtreeNode], error) {
-// 	tree, err := vfs.ToJtree()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	treeMap := orderedmap.New[string, *JtreeNode]()
-
-// 	for _, node := range tree {
-// 		treeMap.Set(node.Id, node)
-// 	}
-
-// 	return treeMap, nil
-// }
-// func (vfs VFS) ToJtree() (Jtree, error) {
-// 	tree := Jtree{}
-
-// 	for path, vfd := range vfs.omap.FromOldest() {
-// 		parent := "#"
-// 		pathTokens := strings.Split(path, "/")
-// 		if len(pathTokens) > 1 {
-// 			parent = strings.Join(pathTokens[:len(pathTokens)-1], "/")
-// 		}
-
-// 		nodeType := "dir"
-// 		content := ""
-// 		if !vfd.IsDir() {
-// 			nodeType = "file"
-// 			content = *vfd.Content
-// 		}
-
-// 		tree = append(tree, &JtreeNode{
-// 			Id:     path,
-// 			Type:   nodeType,
-// 			Text:   filepath.Base(path),
-// 			Parent: parent,
-// 			Data: NodeData{
-// 				Metadata: vfd.Metadata,
-// 				Content:  content,
-// 			},
-// 		})
-// 	}
-
-// 	return tree, nil
-// }
-
-// func (t Jtree) ContentToTree() Jtree {
-// 	for _, node := range t {
-// 		if node.Type == "file" {
-// 			vfs := NewVFS()
-// 			err := vfs.UnmarshalYamlString(node.Data.Content)
-// 			if err != nil {
-// 				fmt.Println(err)
-// 				continue
-// 			}
-
-// 			nt, err := vfs.ToJtreeMap()
-// 			if err != nil {
-// 				fmt.Println(err)
-// 				continue
-// 			}
-
-// 			node.Data.Tree = nt
-// 			// node.Data.Content = ""
-// 		}
-// 	}
-
-// 	return t
-// }
-
-// func (t Jtree) ToVFS() (VFS, error) {
-// 	vfs := NewVFS()
-
-// 	for _, n := range t {
-// 		if n.Type == "dir" {
-// 			vfs.Set(n.Id, nil)
-// 			continue
-// 		}
-
-// 		content := n.Data.Content
-
-// 		if n.Data.Tree != nil {
-// 			subfs, err := n.Data.Jtree().ToVFS()
-// 			if err != nil {
-// 				return vfs, err
-// 			}
-
-// 			data, err := subfs.ToYaml()
-// 			if err != nil {
-// 				return vfs, err
-// 			}
-// 			content = string(data)
-// 		}
-// 		vfs.Set(n.Id, &content)
-// 	}
-
-// 	return vfs, nil
-// }
-
-// type Jtree []*JtreeNode
-
-// func (jt Jtree) Json() ([]byte, error) {
-// 	return json.Marshal(jt)
-// }
-
-// type JtreeNode struct {
-// 	Id     string `json:"id"`
-// 	Type   string `json:"type"`
-// 	Parent string `json:"parent"`
-// 	// Metadata map[string]interface{} `json:"metadata,omitempty"`
-// 	// Content  string                 `json:"content,omitempty"`
-// 	Data NodeData `json:"data,omitempty"`
-// 	Text string   `json:"text"`
-// }
-
-// type NodeData struct {
-// 	Tree     *orderedmap.OrderedMap[string, *JtreeNode] `json:"tree,omitempty"`
-// 	Content  string                                     `json:"content,omitempty"`
-// 	Metadata map[string]interface{}                     `json:"metadata,omitempty"`
-// }
-
-// func (nd NodeData) Jtree() Jtree {
-// 	tree := Jtree{}
-
-// 	for _, n := range nd.Tree.FromOldest() {
-// 		tree = append(tree, n)
-// 	}
-
-// 	return tree
-// }
-
-// // Alternative format of the node (id & parent are required)
-// // {
-// // 	id          : "string" // required
-// // 	parent      : "string" // required
-// // 	text        : "string" // node text
-// // 	icon        : "string" // string for custom
-// // 	state       : {
-// // 	  opened    : boolean  // is the node open
-// // 	  disabled  : boolean  // is the node disabled
-// // 	  selected  : boolean  // is the node selected
-// // 	},
-// // 	li_attr     : {}  // attributes for the generated LI node
-// // 	a_attr      : {}  // attributes for the generated A node
-// //   }
+	return nil
+}

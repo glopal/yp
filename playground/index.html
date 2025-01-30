@@ -1,236 +1,292 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <title>jstree basic demos</title>
+  <head>
+    <meta charset="UTF-8" />
+    <title>yp Editor</title>
     <style>
-        .jstree-default-dark .jstree-anchor {
-            color: white !important;
-            font-size: 1.2em !important;
-        }
+      .jstree-default-dark .jstree-anchor {
+        color: white !important;
+        font-size: 1.2em !important;
+      }
 
-        html,
-        body {
-            height: 100%;
-        }
+      .jstree-node {
+        margin-left: 15px !important;
+      }
 
-        .fill {
-            flex: 1;
-        }
+      .aux-btn {
+        text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+      }
+      .aux-btn i::before {
+        content: "\f28a";
+      }
+      .has-content i::before {
+        content: "\f287";
+      }
+      .aux-selected {
+        background: #5fa2db;
+      }
+      html,
+      body {
+        height: 100%;
+        background-color: #333 !important;
+      }
+
+      .fill {
+        flex: 1;
+      }
     </style>
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="/assets/js/monaco/min/vs/editor/editor.main.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
     <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
         crossorigin="anonymous"></script> -->
     <!-- <link rel="stylesheet" href="//static.jstree.com/3.3.17/assets/bootstrap/css/bootstrap.min.css" /> -->
     <link rel="stylesheet" href="/assets/css/themes/default/style.min.css" />
     <link rel="stylesheet" href="/assets/css/themes/default-dark/style.min.css" />
-</head>
+  </head>
 
-<body class="full-height">
-    <div class="container-fluid d-flex h-100 flex-column">
-        <!-- I want this container to stretch to the height of the parent -->
-        <div class="row">
-            <div class="col">
-                <h5>Test Editor</h5>
+  <body class="overflow-hidden" data-bs-theme="dark">
+    <div class="container-fluid d-flex vh-100 flex-column g-0">
+      <div class="row h-100 g-0">
+        <div class="col d-flex flex-column col-2 h-100 border-end">
+          <div class="flex-grow-1">
+            <div class="fw-bold text-white bg-dark ps-2 py-1 border-top border-bottom">TEST SUITE</div>
+            <div id="tests" class="h-100"></div>
+          </div>
+          <div class="h-50 mt-3 position-relative">
+            <div class="fw-bold text-white bg-dark ps-2 py-1 border-top border-bottom">TEST</div>
+            <div class="position-absolute w-100 h-100 d-flex align-items-center pe-none">
+              <div class="w-100 text-center text-body-tertiary fst-italic user-select-none">Select a test</div>
             </div>
+            <div id="test" class="h-100"></div>
+          </div>
         </div>
-        <div class="row fill d-flex justify-content-start">
-            <div class="col col-md-3 d-flex flex-column">
-                <div class="flex-grow-1">
-                    <div id="tests" class="h-100"></div>
-                </div>
-                <div class="h-50 mt-3">
-                    <div id="test" class="h-100"></div>
-                </div>
+        <div class="col d-flex flex-column h-100 col-8">
+          <div class="row g-0 py-2">
+            <div class="col col-6 text-end">
+              <button id="run-btn" type="button" class="me-2 btn btn-dark d-inline"><span class="bi bi-play-fill text-success fs-4"></span></button>
             </div>
-            <div class="col">
-                <div id="editor" style="width: 800px; height: 600px; border: 1px solid grey"></div>
+            <div class="col col-6"></div>
+          </div>
+          <div class="row flex-grow-1 g-0">
+            <div class="col h-100 col-6">
+              <div id="input-editor" class="h-100"></div>
             </div>
-            <div class="col">
-                <button disabled id="save-btn" type="button" class="btn btn-primary">Save</button>
+            <div class="col col-6">
+              <div id="output-editor" class="h-100"></div>
             </div>
+          </div>
+          <div class="row g-0 py-5">FOOTER</div>
         </div>
+        <div class="col d-flex flex-column col-2 h-100 border-start">
+          <div class="flex-grow-1 d-flex flex-column position-relative">
+            <div class="fw-bold text-white bg-dark ps-2 py-1 border-top border-bottom">ACTUAL</div>
+            <div class="position-absolute w-100 h-100 d-flex align-items-center pe-none">
+              <div class="w-100 text-center text-body-tertiary fst-italic user-select-none">Run a test</div>
+            </div>
+            <div id="actual" class="flex-grow-1"></div>
+            <div class="d-flex user-select-none">
+              <div class="aux-btn border-top py-1 w-50 d-flex justify-content-center align-items-center">STDOUT<i class="bi ps-2" style="font-size: x-small"></i></div>
+              <div class="aux-btn border-top py-1 w-50 d-flex justify-content-center align-items-center border-start">ERROR<i class="bi ps-2" style="font-size: x-small"></i></div>
+            </div>
+          </div>
+          <div class="h-50 position-relative d-flex flex-column">
+            <div class="fw-bold text-white bg-dark ps-2 py-1 border-top border-bottom">EXPECTED</div>
+            <div class="position-absolute w-100 h-100 d-flex align-items-center pe-none">
+              <div class="w-100 text-center text-body-tertiary fst-italic user-select-none">Run a test</div>
+            </div>
+            <div id="output" class="flex-grow-1"></div>
+            <div class="d-flex user-select-none">
+              <div class="aux-btn border-top py-1 w-50 d-flex justify-content-center align-items-center">STDOUT<i class="bi ps-2" style="font-size: x-small"></i></div>
+              <div class="aux-btn border-top py-1 w-50 d-flex justify-content-center align-items-center border-start">ERROR<i class="bi ps-2" style="font-size: x-small"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-        <script src="/assets/js/jstree.min.js"></script>
-        <script src="/assets/js/actions.js"></script>
-        <script src="/assets/js/events.js"></script>
-        <script src="/assets/js/menus.js"></script>
-        <script>
-            var require = { paths: { vs: 'assets/js/monaco/min/vs' } };
-        </script>
-        <script src="/assets/js/monaco/min/vs/loader.js"></script>
-        <script src="/assets/js/monaco/min/vs/editor/editor.main.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="/assets/js/jstree.min.js"></script>
+    <script src="/assets/js/events.js"></script>
+    <script src="/assets/js/utils.js"></script>
+    <script src="/assets/js/childtree.js"></script>
+    <script src="/assets/js/actualtree.js"></script>
+    <script>
+      var require = { paths: { vs: "assets/js/monaco/min/vs" } };
+    </script>
+    <script src="/assets/js/monaco/min/vs/loader.js"></script>
+    <script src="/assets/js/monaco/min/vs/editor/editor.main.js"></script>
 
-        <script>
-            var editor = monaco.editor.create(document.getElementById('editor'), {
-                value: 'a: 1',
-                language: 'yaml',
-                theme: "vs-dark",
-                fontSize: 20,
-                minimap: { enabled: false }
-            });
+    <script>
+      emptyModel = monaco.editor.createModel("", "yaml");
+      function clearEditor(e) {
+        e.setModel(emptyModel);
+        e.updateOptions({ readOnly: false });
+      }
 
-            root = NewNodeListener('tests')
+      var inputEditor = monaco.editor.create(document.getElementById("input-editor"), {
+        readOnly: true,
+        theme: "vs-dark",
+        fontSize: 20,
+        minimap: { enabled: false },
+      });
 
-            // function customMenu(node) {
-            //     var items = $.jstree.defaults.contextmenu.items(node);
+      var outputEditor = monaco.editor.create(document.getElementById("output-editor"), {
+        readOnly: true,
+        theme: "vs-dark",
+        fontSize: 20,
+        minimap: { enabled: false },
+      });
 
-            //     if (node.type === 'file') {
-            //         delete items.create;
-            //     }
+      function update(updateBody) {
+        $.ajax({
+          type: "POST",
+          url: "/update",
+          data: JSON.stringify(updateBody),
+          contentType: "application/json; charset=utf-8",
+          success: function (data) {
+            // alert(data);
+          },
+          error: function (errMsg) {
+            alert("ERROR: " + errMsg.status);
+          },
+        });
+      }
 
-            //     return items;
-            // }
-            // $("#ajax").on('open_node.jstree', function (event, data) {
-            //     data.instance.set_type(data.node, 'dir-open');
-            // });
-            // $("#ajax").on('close_node.jstree', function (event, data) {
-            //     data.instance.set_type(data.node, 'dir-closed');
-            // });
-            $('#tests').on('ready.jstree', function () {
-                $("#tests").jstree("open_all");
-            });
-            $('#test').on('refresh.jstree', function () {
-                $("#test").jstree("open_all");
-            });
-            $('#tests').on('select_node.jstree', function (e, data) {
-                console.log(data)
-                data.instance.toggle_node(data.node);
-            });
+      root = NewNodeListener("tests");
 
-            $('#tests').on('create_node.jstree', function (e, data) {
-                console.log("CREATE: ", data);
-            });
+      root.onUpdate = function (data) {
+        update({
+          op: data.node.type == "dir" ? "PUSH_DIR" : "PUSH",
+          id: data.node.id,
+        });
+        console.log(this.id + " (UPDATE)", data, data.node.id);
+      };
 
-            // $('#tests').on('rename_node.jstree', function (e, data) {
-            //     console.log("RENAME: ", data);
-            //     console.log("ID: ", data.id);
+      root.onRename = function (data) {
+        update({
+          op: "RENAME",
+          oldId: data.old,
+          id: data.new,
+        });
+      };
 
-            //     var nodeId = data.node.original.id;
-            //     if (nodeId == undefined) {
-            //         $(document).trigger('update_node', e, data)
-            //         console.log('New Node Added', data);
-            //     } else if (data.old !== data.text) {
-            //         console.log('Node Renamed', data);
-            //     }
-            // });
-            $('#tests').on('select_node.jstree', function (e, data) {
-                if (data.node.type == "file") {
-                    $('#test').jstree(true).settings.core.data = Object.values(data.node.data.tree)
-                    $('#test').jstree(true).refresh();
-                }
-            });
+      root.onDelete = function (data) {
+        update({
+          op: "DELETE",
+          id: data.node.id,
+        });
+      };
 
-            function getContent(testNode, id) {
-                console.log(testNode)
-                content = testNode.data.tree[id].data.content
-                return content ? content : ""
-            }
-            function setContent(testNode, id, content) {
-                testNode.data.tree[id].data.content = content
-            }
-            $('#test').on('select_node.jstree', function (e, data) {
-                selectedTestNode = $('#tests').jstree(true).get_selected(true)[0]
-                if (data.node.type == "file") {
-                    model = monaco.editor.createModel(
-                        getContent(selectedTestNode, data.node.id),
-                        'yaml'
-                    );
-                    model.id = data.node.id
+      $("#tests").on("contextmenu", function (e) {
+        if (e.target.id != "tests") {
+          return;
+        }
+        e.preventDefault();
 
-                    model.onDidChangeContent((event) => {
-                        $('#save-btn').prop('disabled', false);
-                    });
+        ref = $(this).jstree(true);
+        ref.deselect_all(true);
+        obj = ref.get_node("#");
+        ref._show_contextmenu(obj, e.pageX, e.pageY, rootMenu("Test"));
+      });
 
-                    editor.setModel(model)
-                    $('#save-btn').prop('disabled', true);
-                }
-            });
+      $("#tests").on("ready.jstree", function () {
+        $(this).jstree("open_all");
+      });
 
-            $('#save-btn').on("click", function () {
-                console.log($('#tests').jstree(true).get_selected())
-                console.log(editor.getModel().id)
-                console.log(editor.getModel().getValue())
+      $("#tests").on("select_node.jstree", function (e, data) {
+        console.log(data);
+        data.instance.toggle_node(data.node);
+      });
 
-                selectedTestNode = $('#tests').jstree(true).get_selected(true)[0]
+      selectedId = "";
+      $("#tests").on("select_node.jstree", function (e, data) {
+        if (data.node.id == selectedId) return;
+        ref = $("#test").jstree(true);
+        selectedId = data.node.type == "file" ? data.node.id : "";
 
-                setContent(selectedTestNode, editor.getModel().id, editor.getModel().getValue())
+        // custom event for child trees
+        $(this).trigger("select_change", data);
+      });
 
-                // $('#tests').jstree(true).get_selected()[0].data[$('#test').jstree(true).get_selected().id]
-                // $.ajax({
-                //     type: "POST",
-                //     url: '/test/update',
-                //     dataType: 'json',
-                //     async: false,
-                //     //json object to sent to the authentication url
-                //     data: JSON.stringify({
-                //         testId: $('#tests').jstree(true).get_selected()[0],
-                //         fileId: editor.getModel().id,
-                //         content: editor.getModel().getValue(),
-                //     }),
-                //     success: function () {
+      function getContent(testNode, id) {
+        content = testNode.data.input[id].data;
+        return content ? content : "";
+      }
+      function setContent(testNode, id, content) {
+        testNode.data.tree[id].data.content = content;
+      }
 
-                //     }
-                // })
-            });
+      $("#tests").jstree({
+        core: {
+          allow_reselect: true,
+          check_callback: true,
+          themes: {
+            name: "default-dark",
+            dots: true,
+            icons: true,
+            variant: "large",
+          },
+          data: {
+            url: "/tests.json",
+          },
+        },
+        types: {
+          dir: {},
+          file: {
+            icon: "text-white bi bi-clipboard",
+          },
+        },
+        sort: sortFunc,
+        plugins: ["contextmenu", "types", "sort", "unique"],
+        contextmenu: {
+          items: customMenu("Test"),
+        },
+      });
 
-            $('#tests').jstree({
-                'core': {
-                    'allow_reselect': true,
-                    "check_callback": true,
-                    "themes": {
-                        "name": "default-dark",
-                        "dots": true,
-                        "icons": true,
-                        "variant": "large"
-                    },
-                    'data': {
-                        "url": "/tests.json",
-                    }
+      NewChildTree({
+        id: "test",
+        parent: "tests",
+        src: "input",
+        editor: inputEditor,
+      });
+      NewChildTree({
+        id: "output",
+        parent: "tests",
+        src: "output",
+        editor: outputEditor,
+      });
+      var actualTree = NewTree({
+        id: "actual",
+        src: "output",
+        editor: outputEditor,
+      });
 
-                },
-                "types": {
-                    "dir": {},
-                    "file": {
-                        "icon": "text-white bi bi-clipboard"
-                    }
-                },
-                "plugins": ["contextmenu", "types", "sort", "unique"],
-                'contextmenu': {
-                    'items': customMenu
-                },
-            });
+      var auxBtns = $(".aux-btn");
+      auxBtns.on("click", function (e) {
+        $(".aux-btn").removeClass("aux-selected");
+        $(e.target).addClass("aux-selected");
+      });
 
-            $('#test').jstree({
-                'core': {
-                    'allow_reselect': true,
-                    "check_callback": true,
-                    "themes": {
-                        "name": "default-dark",
-                        "dots": true,
-                        "icons": true,
-                        "variant": "large"
-                    },
-                    'data': {}
-                },
-                "types": {
-                    "dir": {},
-                    "file": {
-                        "icon": "text-white bi bi-filetype-yml"
-                    }
-                },
-                "plugins": ["contextmenu", "types", "sort", "unique"],
-                'contextmenu': {
-                    'items': customMenu
-                },
-            });
-        </script>
-</body>
-
+      $("#run-btn").on("click", function () {
+        $.ajax({
+          type: "GET",
+          url: `/run?id=${selectedId}`,
+          contentType: "application/json; charset=utf-8",
+          success: function (data) {
+            actualTree.setData(data);
+          },
+          error: function (errMsg) {
+            alert("ERROR: " + errMsg.status);
+          },
+        });
+      });
+    </script>
+  </body>
 </html>

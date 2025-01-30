@@ -1,0 +1,12 @@
+input:
+    yp.yml: |
+        a: b
+        val: foo
+        --- #out
+        'out.yml': !yq .
+        'dir/other.yml':
+            - id: 10
+              name: mike
+              color: orange
+              node: !yq .[0]
+output: {}

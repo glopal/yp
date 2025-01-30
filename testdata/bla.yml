@@ -1,0 +1,17 @@
+input:
+    root: {}
+    root/base.yml: |
+        --- #export/base
+        backend:
+            host: foo
+            port: 443
+            probe:
+                url: /default
+                timeout: 60s
+                threshold: 2
+    root/node.yml: |
+        backend:
+            <<: !yq .base.backend
+            ! probe:
+                url: override
+output: {}

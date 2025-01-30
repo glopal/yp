@@ -74,7 +74,9 @@ func (l *NodeLoader) load() {
 	}
 
 	l.nodes, l.err = loadReaders(files...)
-	l.nodes.opts = l.opts
+	if l.err == nil {
+		l.nodes.opts = l.opts
+	}
 }
 
 func (l *NodeLoader) Nodes() (*Nodes, error) {

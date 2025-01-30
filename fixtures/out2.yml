@@ -1,0 +1,7 @@
+--- #out
+'root/test.yml': !yq .
+---
+a: 3
+b: 2
+---
+doc: 2

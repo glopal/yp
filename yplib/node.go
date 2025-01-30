@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
+	"github.com/spf13/afero"
 )
 
 type Kind uint32
@@ -171,7 +172,7 @@ func (n *Node) PrettyPrintYaml(w io.Writer) {
 	printer.PrintResults(list)
 }
 
-func shouldColorize(out *os.File) bool {
+func shouldColorize(out afero.File) bool {
 	colorsEnabled := false
 	fileInfo, err := out.Stat()
 	if err != nil {
