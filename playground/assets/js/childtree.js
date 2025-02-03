@@ -15,6 +15,7 @@ function updateTest(updateBody) {
 
 function extractChildData(tree) {
   var childData = {}
+  
   for (const [id, node] of Object.entries(tree._model.data)) {
     if (id == "#") continue
     childData[id] = (({ id, data, parent, text, type }) => ({ id, data, parent, text, type }))(node);
@@ -101,13 +102,14 @@ function NewChildTree(conf) {
     },
   });
 
+  var prompt = $(childId).prev().children(":first").data("prompt")
   $(childId)
     .on("refresh.jstree", function (e, data) {
       if (Object.keys(data.instance._model.data).length == 1) {
         prev = $(this).prev();
         inner = prev.children(":first");
         if (selectedId == "") {
-          inner.text("Select a test");
+          inner.text(prompt);
         } else {
           inner.text("empty");
         }
@@ -169,14 +171,4 @@ function NewChildTree(conf) {
 
     clearEditor(conf.editor);
   });
-}
-
-function debounce(func, timeout = 500) {
-  let timer;
-  return () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      func()
-    }, timeout);
-  };
 }

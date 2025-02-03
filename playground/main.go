@@ -18,6 +18,8 @@ func main() {
 		panic(err)
 	}
 
+	var curActualVfs *vfs.VFS[string]
+
 	// afero.NewCopyOnWriteFs()
 
 	// memMapFs, err := vfs.ToMemMapFs()
@@ -59,14 +61,14 @@ func main() {
 			ypErr = err.Error()
 		}
 
-		vofs, err := vfs.UnmarshalFs(afero.NewIOFS(ofs))
+		curActualVfs, err = vfs.UnmarshalFs(afero.NewIOFS(ofs))
 		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
 
 		c.JSON(http.StatusOK, YpOutput{
-			Output: vofs.ToJsTreeMap(),
+			Output: curActualVfs.ToJsTreeMap(),
 			Stdout: b.String(),
 			Err:    ypErr,
 		})
@@ -95,6 +97,24 @@ func main() {
 		}
 
 		if err := updateTestBody.Update(ts); err != nil {
+			ctx.AbortWithError(http.StatusInternalServerError, err)
+			return
+		}
+
+		ctx.Status(http.StatusOK)
+	})
+
+	r.GET("/approve", func(ctx *gin.Context) {
+		id := ctx.Query("id")
+
+		test, exists := ts.Get(id)
+		if !exists {
+			ctx.AbortWithError(http.StatusNotFound, err)
+			return
+		}
+
+		err = test.SetOutput(curActualVfs)
+		if err != nil {
 			ctx.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}

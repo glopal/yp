@@ -115,8 +115,10 @@ function NewTree(conf) {
 
 
     return {
-        setData: function(data) {
-            treeDiv.trigger("update", data)
+        $tree: $("#" + conf.id),
+        setData: function (data) {
+            console.log(this)
+            this.$tree.trigger("update", data)
         }
     }
 }

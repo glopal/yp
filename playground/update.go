@@ -17,8 +17,8 @@ const (
 )
 
 const (
-	INPUT    Target = "input"
-	EXPECTED        = "expected"
+	INPUT  Target = "input"
+	OUTPUT        = "output"
 )
 
 type UpdateBody struct {
@@ -59,7 +59,7 @@ func (u UpdateTestBody) Update(ts *vfs.TestSuiteFs) error {
 		return fmt.Errorf("failed to get testfs (%s)", u.ParentId)
 	}
 	target := t.Input
-	if u.Target == EXPECTED {
+	if u.Target == OUTPUT {
 		target = t.Output
 	}
 	switch u.Op {

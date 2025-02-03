@@ -62,7 +62,7 @@
           <div class="h-50 mt-3 position-relative">
             <div class="fw-bold text-white bg-dark ps-2 py-1 border-top border-bottom">TEST</div>
             <div class="position-absolute w-100 h-100 d-flex align-items-center pe-none">
-              <div class="w-100 text-center text-body-tertiary fst-italic user-select-none">Select a test</div>
+              <div class="w-100 text-center text-body-tertiary fst-italic user-select-none" data-prompt="Select a test">Select a test</div>
             </div>
             <div id="test" class="h-100"></div>
           </div>
@@ -86,9 +86,16 @@
         </div>
         <div class="col d-flex flex-column col-2 h-100 border-start">
           <div class="flex-grow-1 d-flex flex-column position-relative">
-            <div class="fw-bold text-white bg-dark ps-2 py-1 border-top border-bottom">ACTUAL</div>
+            <div class="fw-bold text-white bg-dark ps-2 py-1 border-top border-bottom">
+              <div class="row g-0 py-0">
+                <div class="col col-6">ACTUAL</div>
+                <div class="col col-6 text-end pe-1">
+                  <span id="approve-btn" class="bi bi-arrow-down-square-fill btn py-0 px-1"></span>
+                </div>
+              </div>
+            </div>
             <div class="position-absolute w-100 h-100 d-flex align-items-center pe-none">
-              <div class="w-100 text-center text-body-tertiary fst-italic user-select-none">Run a test</div>
+              <div class="w-100 text-center text-body-tertiary fst-italic user-select-none" data-prompt="Run a test">Run a test</div>
             </div>
             <div id="actual" class="flex-grow-1"></div>
             <div class="d-flex user-select-none">
@@ -99,7 +106,7 @@
           <div class="h-50 position-relative d-flex flex-column">
             <div class="fw-bold text-white bg-dark ps-2 py-1 border-top border-bottom">EXPECTED</div>
             <div class="position-absolute w-100 h-100 d-flex align-items-center pe-none">
-              <div class="w-100 text-center text-body-tertiary fst-italic user-select-none">Run a test</div>
+              <div class="w-100 text-center text-body-tertiary fst-italic user-select-none" data-prompt="Select a test">Select a test</div>
             </div>
             <div id="output" class="flex-grow-1"></div>
             <div class="d-flex user-select-none">
@@ -115,8 +122,9 @@
     <script src="/assets/js/jstree.min.js"></script>
     <script src="/assets/js/events.js"></script>
     <script src="/assets/js/utils.js"></script>
-    <script src="/assets/js/childtree.js"></script>
-    <script src="/assets/js/actualtree.js"></script>
+    <!-- <script src="/assets/js/childtree.js"></script>
+    <script src="/assets/js/actualtree.js"></script> -->
+    <script src="/assets/js/tree.js"></script>
     <script>
       var require = { paths: { vs: "assets/js/monaco/min/vs" } };
     </script>
@@ -125,6 +133,8 @@
 
     <script>
       emptyModel = monaco.editor.createModel("", "yaml");
+      emptyModel.uri.path = "/null";
+
       function clearEditor(e) {
         e.setModel(emptyModel);
         e.updateOptions({ readOnly: false });
@@ -250,22 +260,25 @@
         },
       });
 
-      NewChildTree({
+      NewTree({
         id: "test",
         parent: "tests",
         src: "input",
         editor: inputEditor,
+        contextmenu: customMenu("File"),
       });
-      NewChildTree({
+      expectedTree = NewTree({
         id: "output",
         parent: "tests",
         src: "output",
         editor: outputEditor,
+        contextmenu: customMenu("File"),
       });
       var actualTree = NewTree({
         id: "actual",
         src: "output",
         editor: outputEditor,
+        readOnly: true,
       });
 
       var auxBtns = $(".aux-btn");
@@ -281,6 +294,28 @@
           contentType: "application/json; charset=utf-8",
           success: function (data) {
             actualTree.setData(data);
+          },
+          error: function (errMsg) {
+            alert("ERROR: " + errMsg.status);
+          },
+        });
+      });
+
+      $("#approve-btn").on("click", function () {
+        $.ajax({
+          type: "GET",
+          url: `/approve?id=${selectedId}`,
+          success: function (data) {
+            var dstTree = expectedTree.$tree.jstree(true);
+            var srcTree = actualTree.$tree.jstree(true);
+
+            expectedTree.$tree.on("refresh.jstree.once", function (e, data) {
+              $("#tests").jstree(true).get_node(selectedId).data["output"] = extractChildData(dstTree);
+              $(this).off("refresh.jstree.once");
+            });
+
+            dstTree.settings.core.data = srcTree.settings.core.data;
+            dstTree.refresh(true, true);
           },
           error: function (errMsg) {
             alert("ERROR: " + errMsg.status);

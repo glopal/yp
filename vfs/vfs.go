@@ -222,6 +222,11 @@ func (vfs *VFS[T]) Push(newKey string, val T) error {
 	return vfs.OnPush(vfs.GetPair(newKey))
 }
 
+// func (vfs *VFS[T]) Replace(key string, val *VFS[T]) error {
+
+// 	return vfs.OnPush(vfs.GetPair(key))
+// }
+
 func (vfs *VFS[T]) getAfterKey(newKey string, startKey string) string {
 	afterKey := ""
 	start := vfs.AtOrOldest(startKey)

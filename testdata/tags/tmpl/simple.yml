@@ -3,10 +3,18 @@ input:
         a: b
         val: foo
         --- #out
-        'out.yml': !yq .
+        # 'out.yml': !yq .
         'dir/other.yml':
             - id: 10
               name: mike
               color: orange
               node: !yq .[0]
-output: {}
+output:
+    dir: {}
+    dir/other.yml: |
+        id: 10
+        name: mike
+        color: orange
+        node:
+          a: b
+          val: foo

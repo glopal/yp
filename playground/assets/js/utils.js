@@ -226,3 +226,13 @@ function sortFunc (a, b) {
       return a1.type > b1.type ? 1 : -1;
     }
   }
+
+  function debounce(func, timeout = 500) {
+    let timer;
+    return () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        func()
+      }, timeout);
+    };
+  }

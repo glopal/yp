@@ -13,8 +13,9 @@ import (
 )
 
 type TestFs struct {
-	Input  *VFS[string] `yaml:"input"`
-	Output *VFS[string] `yaml:"output"`
+	Input     *VFS[string] `yaml:"input"`
+	Output    *VFS[string] `yaml:"output"`
+	syncSuite func() error
 }
 
 func NewTestFs() (*TestFs, error) {
@@ -26,6 +27,8 @@ func NewTestFs() (*TestFs, error) {
 	return t, t.Input.InitMemMapFs()
 }
 func (t *TestFs) SetSyncHook(syncHook func() error) {
+	t.syncSuite = syncHook
+
 	t.Input.OnPushDir = func(path string) error {
 		err := t.Input.Fs.MkdirAll(path, 0755)
 		if err != nil {
@@ -63,6 +66,11 @@ func (t *TestFs) SetSyncHook(syncHook func() error) {
 	t.Output.OnPush = t.Input.OnPush
 	t.Output.OnRename = t.Input.OnRename
 	t.Output.OnDelete = t.Input.OnDelete
+}
+
+func (ts *TestFs) SetOutput(outputFs *VFS[string]) error {
+	ts.Output = outputFs
+	return ts.syncSuite()
 }
 
 func (t *TestFs) UnmarshalYAML(node *yaml.Node) error {
