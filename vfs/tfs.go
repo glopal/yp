@@ -1,12 +1,14 @@
 package vfs
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
+	"iter"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/glopal/yp/yplib"
 	"github.com/spf13/afero"
 	orderedmap "github.com/wk8/go-ordered-map/v2"
 	"gopkg.in/yaml.v3"
@@ -15,6 +17,8 @@ import (
 type TestFs struct {
 	Input     *VFS[string] `yaml:"input"`
 	Output    *VFS[string] `yaml:"output"`
+	Stdout    string       `yaml:"stdout,omitempty"`
+	Err       string       `yaml:"err,omitempty"`
 	syncSuite func() error
 }
 
@@ -37,7 +41,6 @@ func (t *TestFs) SetSyncHook(syncHook func() error) {
 		return syncHook()
 	}
 	t.Input.OnPush = func(p *orderedmap.Pair[string, FD[string]]) error {
-		fmt.Println(t.Input)
 		err := afero.WriteFile(t.Input.Fs, p.Key, []byte(p.Value.content), 0755)
 		if err != nil {
 			return err
@@ -68,8 +71,19 @@ func (t *TestFs) SetSyncHook(syncHook func() error) {
 	t.Output.OnDelete = t.Input.OnDelete
 }
 
-func (ts *TestFs) SetOutput(outputFs *VFS[string]) error {
+func (ts *TestFs) SetStdout(val string) error {
+	ts.Stdout = val
+	return ts.syncSuite()
+}
+func (ts *TestFs) SetErr(val string) error {
+	ts.Err = val
+	return ts.syncSuite()
+}
+
+func (ts *TestFs) SetOutput(outputFs *VFS[string], stdout, err string) error {
 	ts.Output = outputFs
+	ts.Stdout = stdout
+	ts.Err = err
 	return ts.syncSuite()
 }
 
@@ -91,15 +105,53 @@ func (t *TestFs) UnmarshalYAML(node *yaml.Node) error {
 	return t.Input.InitMemMapFs()
 }
 
+type testFs struct {
+	Input  map[string]JsTreeNode `json:"input"`
+	Output map[string]JsTreeNode `json:"output"`
+	Stdout string                `json:"stdout,omitempty"`
+	Err    string                `json:"err,omitempty"`
+}
+
 func (t *TestFs) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		Input  map[string]JsTreeNode `json:"input"`
-		Output map[string]JsTreeNode `json:"output"`
-	}{
+	return json.Marshal(testFs{
 		Input:  t.Input.ToJsTreeMap(),
 		Output: t.Output.ToJsTreeMap(),
+		Stdout: t.Stdout,
+		Err:    t.Err,
 	})
 }
+
+type YpOutput struct {
+	Output *VFS[string] `json:"output"`
+	Stdout string       `json:"stdout"`
+	Err    string       `json:"err"`
+}
+
+func (t *TestFs) Run() (YpOutput, error) {
+	output := YpOutput{}
+	ofs := afero.NewMemMapFs()
+	b := bytes.NewBuffer([]byte{})
+
+	err := yplib.WithOptions(yplib.WithFS(afero.NewIOFS(t.Input.Fs)), yplib.WithOutputFS(ofs), yplib.WithWriter(b)).Load(".").Out()
+	if err != nil {
+		output.Err = err.Error()
+	}
+
+	output.Stdout = b.String()
+
+	outputVfs, err := UnmarshalFs(afero.NewIOFS(ofs))
+	if err != nil {
+		return output, err
+	}
+
+	output.Output = outputVfs
+
+	return output, nil
+}
+
+// func (t *TestFs) Validate() (YpOutput, error) {
+
+// }
 
 type TestSuiteFs struct {
 	*VFS[*TestFs]
@@ -150,6 +202,19 @@ func NewTestSuiteFs(dir string) (*TestSuiteFs, error) {
 		tfs,
 		dir,
 	}, nil
+}
+
+func (ts *TestSuiteFs) Tests() iter.Seq2[string, *TestFs] {
+	return func(yield func(string, *TestFs) bool) {
+		for pair := ts.Oldest(); pair != nil; pair = pair.Next() {
+			if pair.Value.IsDir() {
+				continue
+			}
+			if !yield(pair.Key, pair.Value.content) {
+				return
+			}
+		}
+	}
 }
 
 func (ts *TestSuiteFs) DecorateFileNode(node *JsTreeNode) {

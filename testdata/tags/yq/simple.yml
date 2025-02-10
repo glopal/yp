@@ -11,3 +11,14 @@ input:
         b: 2
         c: 50
 output: {}
+stdout: |
+    FOO: 222
+    foo: bar
+    ---
+    bla: 123
+    ---
+    a: [1, 2, 3, 4]
+    ---
+    a: 1
+    b: 2
+    c: 50

@@ -1,0 +1,58 @@
+input:
+    examples.yml: |-
+        ---
+        name: example 1
+        backend:
+            <<: !yq .base.backend
+            probe:
+                url: /override
+                interval: 20s
+        ---
+        name: example 2
+        backend:
+            host: override.com
+            probe:
+                url: /override
+                <<: !yq .base.backend.probe
+            <<: !yq .base.backend
+    exports.yml: |+
+        --- #export/base
+        backend:
+            host: example.com
+            timeout: 1m
+            probe:
+                url: /health
+                interval: 30s
+                timeout: 15s
+        --- #export/probe
+        probe:
+            url: /custom/health
+
+    yq.yml: "---\nbackend: !yq .probe *n .base.backend "
+output: {}
+stdout: |
+    name: example 1
+    backend:
+      host: example.com
+      timeout: 1m
+      probe:
+        url: /override
+        interval: 20s
+        timeout: 5s
+    ---
+    name: example 2
+    backend:
+      probe:
+        url: /override
+        interval: 30s
+        timeout: 15s
+      host: example.com
+      timeout: 1m
+    ---
+    backend:
+      probe:
+        url: /custom/health
+        interval: 30s
+        timeout: 15s
+      host: example.com
+      timeout: 1m

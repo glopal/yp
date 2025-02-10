@@ -176,6 +176,10 @@ func (ns *Nodes) resolveOut() ([]OutNodes, error) {
 	for i := 0; i < len(ns.out.CandidateNode.Content); i += 2 {
 		path := ns.out.CandidateNode.Content[i].Value
 
+		if path == "/dev/stdout" {
+			outNodes = append(outNodes, ns.opts.getStdoutOutNodes(ns.out.CandidateNode.Content[i+1]))
+			continue
+		}
 		if path != filepath.Base(path) {
 			err := os.MkdirAll(filepath.Dir(path), 0755)
 			if err != nil {

@@ -25,6 +25,10 @@ func (fd FD[T]) Bytes() ([]byte, error) {
 	return []byte(fmt.Sprintf("%v", fd.content)), nil
 }
 
+func (fd FD[T]) Content() T {
+	return fd.content
+}
+
 func NewFile[T any](content T) FD[T] {
 	return FD[T]{
 		isFile:  true,
@@ -435,7 +439,7 @@ func (vfs *VFS[T]) InitMemMapFs() error {
 			if err != nil {
 				return err
 			}
-			fmt.Println(string(data))
+
 			if err := afero.WriteFile(vfs.Fs, path, data, 0755); err != nil {
 				return err
 			}

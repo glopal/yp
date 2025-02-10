@@ -1,13 +1,18 @@
 package yplib
 
 import (
+	"container/list"
 	"errors"
 
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
 )
 
+var mergeMapNewExpr *yqlib.ExpressionNode
+
 func init() {
 	AddTagResolver("merge", mergeResolver)
+	mergeMapNewExpr, _ = yqlib.ExpressionParser.ParseExpression(`. *n $rhs`)
+
 }
 
 func mergeResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
@@ -65,6 +70,9 @@ func mapMerge(target *yqlib.CandidateNode) error {
 	var newContent *yqlib.CandidateNode
 	var startIndex int
 
+	afterKeys := map[string]struct{}{}
+	newPairs := map[string]*yqlib.CandidateNode{}
+
 	for i := 0; i < len(mapNode.Content); i += 2 {
 		k := mapNode.Content[i]
 		v := mapNode.Content[i+1]
@@ -76,17 +84,91 @@ func mapMerge(target *yqlib.CandidateNode) error {
 
 			newContent = v
 			startIndex = i
-			continue
+			break
 		}
+	}
+
+	if len(mapNode.Content) >= startIndex+2 {
+		for i := startIndex + 2; i < len(mapNode.Content); i += 2 {
+			afterKeys[mapNode.Content[i].Value] = struct{}{}
+		}
+		tmp := newContent.CopyWithoutContent()
+
+		for i := 0; i < len(newContent.Content); i += 2 {
+			k := newContent.Content[i]
+			v := newContent.Content[i+1]
+
+			if _, exists := afterKeys[k.Value]; !exists {
+				tmp.Content = append(tmp.Content, k, v)
+				newPairs[k.Value] = v
+			}
+		}
+
+		newContent = tmp
 	}
 
 	n := mapNode.CopyWithoutContent()
 
-	n.Content = append(n.Content, mapNode.Content[:startIndex]...)
-	n.Content = append(n.Content, newContent.Content...)
+	for i := 0; i < startIndex; i += 2 {
+		k := mapNode.Content[i]
+		v := mapNode.Content[i+1]
+
+		if val, exists := newPairs[k.Value]; exists {
+			v, err := mergeNewFields(v, val)
+			if err != nil {
+				return err
+			}
+			n.Content = append(n.Content, k, v)
+
+			delete(newPairs, k.Value)
+		} else {
+			n.Content = append(n.Content, k, v)
+		}
+	}
+
+	for i := 0; i < len(newContent.Content); i += 2 {
+		k := newContent.Content[i]
+		v := newContent.Content[i+1]
+
+		if _, exists := newPairs[k.Value]; exists {
+			n.Content = append(n.Content, k, v)
+		}
+	}
+
 	n.Content = append(n.Content, mapNode.Content[startIndex+2:]...)
 
 	mapNode.Content = n.Content
 
 	return nil
+}
+
+func mergeNewFields(lhs, rhs *yqlib.CandidateNode) (*yqlib.CandidateNode, error) {
+	if rhs.Kind != yqlib.MappingNode {
+		return lhs, nil
+	}
+	context, err := yqlib.NewDataTreeNavigator().GetMatchingNodes(createMergeNewContext(lhs, rhs), mergeMapNewExpr)
+	if err != nil {
+		return nil, err
+	}
+
+	if context.MatchingNodes.Len() == 0 {
+		return nil, errors.New("failed to merge")
+	}
+
+	return context.MatchingNodes.Front().Value.(*yqlib.CandidateNode), nil
+}
+
+func createMergeNewContext(lhs, rhs *yqlib.CandidateNode) yqlib.Context {
+	lhsList := list.New()
+	lhsList.PushBack(lhs)
+
+	vars := map[string]*list.List{}
+	rhsList := list.New()
+	rhsList.PushBack(rhs)
+	vars["rhs"] = rhsList
+
+	return yqlib.Context{
+		MatchingNodes: lhsList,
+		Variables:     vars,
+	}
 }

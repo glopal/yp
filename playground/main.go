@@ -12,13 +12,31 @@ import (
 	"github.com/spf13/afero"
 )
 
+type YpOutput struct {
+	Output *vfs.VFS[string] `json:"output"`
+	Stdout string           `json:"stdout"`
+	Err    string           `json:"err"`
+}
+
+func (ypo YpOutput) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Output vfs.JsTree `json:"output"`
+		Stdout string     `json:"stdout"`
+		Err    string     `json:"err"`
+	}{
+		Output: ypo.Output.ToJsTree(),
+		Stdout: ypo.Stdout,
+		Err:    ypo.Err,
+	})
+}
+
 func main() {
 	ts, err := vfs.NewTestSuiteFs("testdata")
 	if err != nil {
 		panic(err)
 	}
 
-	var curActualVfs *vfs.VFS[string]
+	var curYpOutput YpOutput
 
 	// afero.NewCopyOnWriteFs()
 
@@ -38,11 +56,6 @@ func main() {
 		c.HTML(http.StatusOK, "index.html", gin.H{})
 	})
 
-	type YpOutput struct {
-		Output map[string]vfs.JsTreeNode `json:"output"`
-		Stdout string                    `json:"stdout"`
-		Err    string                    `json:"err"`
-	}
 	r.GET("/run", func(c *gin.Context) {
 		id := c.Query("id")
 
@@ -52,26 +65,27 @@ func main() {
 			return
 		}
 
+		curYpOutput = YpOutput{}
+
 		ofs := afero.NewMemMapFs()
 		b := bytes.NewBuffer([]byte{})
 
-		ypErr := ""
 		err := yplib.WithOptions(yplib.WithFS(afero.NewIOFS(test.Input.Fs)), yplib.WithOutputFS(ofs), yplib.WithWriter(b)).Load(".").Out()
 		if err != nil {
-			ypErr = err.Error()
+			curYpOutput.Err = err.Error()
 		}
 
-		curActualVfs, err = vfs.UnmarshalFs(afero.NewIOFS(ofs))
+		curYpOutput.Stdout = b.String()
+
+		actualVfs, err := vfs.UnmarshalFs(afero.NewIOFS(ofs))
 		if err != nil {
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
 
-		c.JSON(http.StatusOK, YpOutput{
-			Output: curActualVfs.ToJsTreeMap(),
-			Stdout: b.String(),
-			Err:    ypErr,
-		})
+		curYpOutput.Output = actualVfs
+
+		c.JSON(http.StatusOK, curYpOutput)
 	})
 
 	r.POST("/update", func(ctx *gin.Context) {
@@ -113,7 +127,7 @@ func main() {
 			return
 		}
 
-		err = test.SetOutput(curActualVfs)
+		err = test.SetOutput(curYpOutput.Output, curYpOutput.Stdout, curYpOutput.Err)
 		if err != nil {
 			ctx.AbortWithError(http.StatusInternalServerError, err)
 			return

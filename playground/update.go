@@ -11,14 +11,16 @@ type Target string
 
 const (
 	PUSH_DIR Op = "PUSH_DIR"
-	PUSH        = "PUSH"
-	RENAME      = "RENAME"
-	DELETE      = "DELETE"
+	PUSH     Op = "PUSH"
+	RENAME   Op = "RENAME"
+	DELETE   Op = "DELETE"
 )
 
 const (
 	INPUT  Target = "input"
-	OUTPUT        = "output"
+	OUTPUT Target = "output"
+	STDOUT Target = "stdout"
+	ERR    Target = "err"
 )
 
 type UpdateBody struct {
@@ -58,10 +60,21 @@ func (u UpdateTestBody) Update(ts *vfs.TestSuiteFs) error {
 	if !ok {
 		return fmt.Errorf("failed to get testfs (%s)", u.ParentId)
 	}
-	target := t.Input
-	if u.Target == OUTPUT {
+	var target *vfs.VFS[string]
+
+	switch u.Target {
+	case INPUT:
+		target = t.Input
+	case OUTPUT:
 		target = t.Output
+	case STDOUT:
+		content, _ := u.Content.(string)
+		return t.SetStdout(content)
+	case ERR:
+		content, _ := u.Content.(string)
+		return t.SetErr(content)
 	}
+
 	switch u.Op {
 	case PUSH_DIR:
 		return target.PushDir(u.Id)

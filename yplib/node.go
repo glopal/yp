@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
@@ -72,6 +73,11 @@ func (n *Node) Resolve(ctx *ContextNode, vars map[string]*ContextNode, opts *loa
 	}
 
 	merger := tagResolvers["merge"]
+
+	sort.SliceStable(merges, func(i, j int) bool {
+		return merges[i].Column < merges[j].Column
+	})
+
 	for i := len(merges) - 1; i >= 0; i-- {
 		_, err := merger.Resolve(ResolveContext{
 			Target: merges[i],

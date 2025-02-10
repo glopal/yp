@@ -3,9 +3,11 @@ package yplib
 import (
 	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/mikefarah/yq/v4/pkg/yqlib"
 	"github.com/spf13/afero"
 )
 
@@ -60,6 +62,19 @@ func OmitDotFiles() func(*loadOptions) {
 }
 func (lo *loadOptions) isInputOS() bool {
 	return lo.ifs == nil
+}
+func (lo *loadOptions) getStdoutOutNodes(cnode *yqlib.CandidateNode) OutNodes {
+	out := OutNodes{
+		node: cnode,
+	}
+
+	if lo.writer != nil {
+		out.writer = lo.writer
+	} else {
+		out.file = os.Stdout
+	}
+
+	return out
 }
 
 func (lo *loadOptions) walkDir(root string, walkFunc fs.WalkDirFunc) error {

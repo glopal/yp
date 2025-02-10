@@ -1,9 +1,10 @@
 input:
     yp.yml: |
         a: b
-        val: foo
+        val: blaaa
         --- #out
-        # 'out.yml': !yq .
+        '/dev/stdout': !yq .
+        'out.yml': !yq .
         'dir/other.yml':
             - id: 10
               name: mike
@@ -17,4 +18,10 @@ output:
         color: orange
         node:
           a: b
-          val: foo
+          val: blaaa
+    out.yml: |
+        a: b
+        val: blaaa
+stdout: |
+    a: b
+    val: blaaa
