@@ -1,0 +1,65 @@
+input:
+    yp.yml: |
+        --- #export
+        map:
+          val: 10
+        objs:
+          - a: 1
+            b: 2
+          - c: 3
+            d: 4
+          - e: 5
+        ---
+        all:
+          <<: !yq .objs[0]
+          <<: !yq .objs[1]
+          <<: !yq .objs[2]
+          <<: !yq .objs[1]
+          <<: !yq .objs[2]
+        start:
+          a: 1
+          b: 2
+          <<: !yq .objs[0]
+          <<: !yq .objs[1]
+          <<: !yq .objs[2]
+        middle:
+          <<: !yq .objs[0]
+          c: 3
+          d: 4
+          <<: !yq .objs[2]
+        end:
+          <<: !yq .objs[0]
+          <<: !yq .objs[1]
+          e: 5
+        non-new:
+          a: "1"
+          b:
+            foo: bar
+
+          <<: !yq .objs[0]
+output: {}
+stdout: |
+    all:
+      a: 1
+      b: 2
+      c: 3
+      d: 4
+      e: 5
+    start:
+      a: 1
+      b: 2
+      c: 3
+      d: 4
+      e: 5
+    middle:
+      a: 1
+      b: 2
+      c: 3
+      d: 4
+      e: 5
+    end:
+      a: 1
+      b: 2
+      c: 3
+      d: 4
+      e: 5

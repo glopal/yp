@@ -1,0 +1,27 @@
+input:
+    yp.yml: |
+        a: b
+        val: blaaa
+        --- #out
+        '/dev/stdout': !yq .
+        'out.yml': !yq .
+        'dir/other.yml':
+            - id: 10
+              name: mike
+              color: orange
+              node: !yq .[0]
+output:
+    dir: {}
+    dir/other.yml: |
+        id: 10
+        name: mike
+        color: orange
+        node:
+          a: b
+          val: blaaa
+    out.yml: |
+        a: b
+        val: blaaa
+stdout: |
+    a: b
+    val: blaaa

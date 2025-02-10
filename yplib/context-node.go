@@ -170,13 +170,6 @@ func newMapNode() *yqlib.CandidateNode {
 	}
 }
 
-// func mapNodeReducer() (*yqlib.CandidateNode, func(*yqlib.CandidateNode, *yqlib.CandidateNode)) {
-// 	initial := newMapNode()
-
-//		return initial, func(mapNode *yqlib.CandidateNode, item *yqlib.CandidateNode) {
-//			mapNode.AddChildren(item.Content)
-//		}
-//	}
 func updateMapNode(mapNode *yqlib.CandidateNode, item *yqlib.CandidateNode) error {
 	return yqlib.NewDataTreeNavigator().DeeplyAssign(createMergeContext(mapNode), []interface{}{}, item)
 }

@@ -1,0 +1,43 @@
+input:
+    yp.yml: "--- #export\nobj:\n  c: 3\n  d: 4\nlist:\n  - 3\n  - 4\n---\nobj:\n  start:\n    <<: !yq .obj\n    e: 5\n  end:\n    a: 1\n    b: 2\n    <<: !yq .obj\n  middle:\n    a: 1\n    b: 2\n    <<: !yq .obj\n    e: 5\n  total:\n    <<: !yq .obj\nlist:\n  start:\n    - <<: !yq .list\n    - 5\n  end:\n    - 1\n    - 2\n    - <<: !yq .list\n  middle: \n    - 1\n    - 2\n    - <<: !yq .list\n    - 5\n    - 6\n  total:\n    - <<: !yq .list\n"
+output: {}
+stdout: |
+    obj:
+      start:
+        c: 3
+        d: 4
+        e: 5
+      end:
+        a: 1
+        b: 2
+        c: 3
+        d: 4
+      middle:
+        a: 1
+        b: 2
+        c: 3
+        d: 4
+        e: 5
+      total:
+        c: 3
+        d: 4
+    list:
+      start:
+        - 3
+        - 4
+        - 5
+      end:
+        - 1
+        - 2
+        - 3
+        - 4
+      middle:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+      total:
+        - 3
+        - 4

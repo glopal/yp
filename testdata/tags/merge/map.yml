@@ -1,0 +1,18 @@
+input:
+    yp.yml: "--- #export\nobj:\n    desc: foo\n    tags:\n        color: red\n        price: 10.00\n---\n# merge new fields\n# should override color\nobj:\n    id: 123\n    tags:\n        color: blue\n    <<: !yq .obj\n---\n# keys below merge are guarded\n# tags object should just have price\nobj:\n    id: 123\n    <<: !yq .obj\n    tags:\n        price: 9.99\n    "
+output: {}
+stdout: |
+    # should override color
+    obj:
+      id: 123
+      tags:
+        color: blue
+        price: 10.00
+      desc: foo
+    ---
+    # tags object should just have price
+    obj:
+      id: 123
+      desc: foo
+      tags:
+        price: 9.99

@@ -4,9 +4,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
+	"github.com/spf13/afero"
 )
 
 type Kind uint32
@@ -71,6 +73,11 @@ func (n *Node) Resolve(ctx *ContextNode, vars map[string]*ContextNode, opts *loa
 	}
 
 	merger := tagResolvers["merge"]
+
+	sort.SliceStable(merges, func(i, j int) bool {
+		return merges[i].Column < merges[j].Column
+	})
+
 	for i := len(merges) - 1; i >= 0; i-- {
 		_, err := merger.Resolve(ResolveContext{
 			Target: merges[i],
@@ -171,7 +178,7 @@ func (n *Node) PrettyPrintYaml(w io.Writer) {
 	printer.PrintResults(list)
 }
 
-func shouldColorize(out *os.File) bool {
+func shouldColorize(out afero.File) bool {
 	colorsEnabled := false
 	fileInfo, err := out.Stat()
 	if err != nil {

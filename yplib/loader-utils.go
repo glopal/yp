@@ -34,11 +34,11 @@ func (f FsFileWrapper) Name() string {
 }
 
 func getNamedReader(path string, opts *loadOptions) (NamedReader, error) {
-	if opts.isOSFS() {
+	if opts.isInputOS() {
 		return os.Open(path)
 	}
 
-	f, err := opts.fs.Open(path)
+	f, err := opts.ifs.Open(path)
 	if err != nil {
 		return nil, err
 	}

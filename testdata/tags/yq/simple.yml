@@ -1,0 +1,24 @@
+input:
+    root: {}
+    root/changed.yml: 'a: [1,2,3,4]'
+    root/NEST: {}
+    root/NEST/f2.yml: |-
+        FOO: 222
+        foo: bar
+    root/NEST/nest.yml: 'bla: 123'
+    root/node.yml: |-
+        a: 1
+        b: 2
+        c: 50
+output: {}
+stdout: |
+    FOO: 222
+    foo: bar
+    ---
+    bla: 123
+    ---
+    a: [1, 2, 3, 4]
+    ---
+    a: 1
+    b: 2
+    c: 50

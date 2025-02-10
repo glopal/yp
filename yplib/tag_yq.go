@@ -27,7 +27,6 @@ func yqResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
 
 	if context.MatchingNodes.Len() == 0 {
 		if rc.Node.IsRef() {
-			fmt.Println(rc.Node.Kind.String(), rc.Node.File)
 			return nil, errors.New("Unable to resolve")
 		}
 

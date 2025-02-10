@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/mikefarah/yq/v4/pkg/yqlib"
+	"github.com/spf13/afero"
 )
 
 type Nodes struct {
@@ -107,13 +108,15 @@ func (ns *Nodes) Out() error {
 	prefs.Indent = 2
 
 	for _, out := range ns.outNodes {
+		prefs.ColorsEnabled = false
 		w := out.writer
 		if w == nil {
 			w = out.file
+			prefs.ColorsEnabled = shouldColorize(out.file)
 			defer out.file.Close()
 		}
 		l := list.New()
-		prefs.ColorsEnabled = shouldColorize(out.file)
+
 		printer := yqlib.NewPrinter(yqlib.NewYamlEncoder(prefs), yqlib.NewSinglePrinterWriter(w))
 
 		for docIndex, cn := range out.node.Content {
@@ -135,7 +138,7 @@ func (ns *Nodes) Out() error {
 
 type OutNodes struct {
 	node   *yqlib.CandidateNode
-	file   *os.File
+	file   afero.File
 	writer io.Writer
 }
 
@@ -168,10 +171,15 @@ func (ns *Nodes) resolveOut() ([]OutNodes, error) {
 	}
 
 	outNodes := make([]OutNodes, 0, len(ns.out.CandidateNode.Content)/2)
+	os := ns.opts.os
 
 	for i := 0; i < len(ns.out.CandidateNode.Content); i += 2 {
 		path := ns.out.CandidateNode.Content[i].Value
 
+		if path == "/dev/stdout" {
+			outNodes = append(outNodes, ns.opts.getStdoutOutNodes(ns.out.CandidateNode.Content[i+1]))
+			continue
+		}
 		if path != filepath.Base(path) {
 			err := os.MkdirAll(filepath.Dir(path), 0755)
 			if err != nil {

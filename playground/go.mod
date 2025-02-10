@@ -2,7 +2,7 @@ module playground
 
 go 1.23.2
 
-replace yamlp => ../yamlp
+replace yp => ../yp
 
 require (
 	github.com/gin-gonic/contrib v0.0.0-20240508051311-c1c6bf0061b0
