@@ -1,0 +1,24 @@
+input:
+    yp.yml: |-
+        --- #export
+        ctx:
+          - id: 123
+            name: bla
+          - id: 321
+            name: foo
+        !_ template:
+          id: !yq .id
+          name: !yq .name
+        ---
+        output: !resolve .ctx[0] .template
+        !map '.ctx':
+            !_ <<:
+              !yq '"test/overlays/aws-digital/" + $v.id + "/dkp2/resources.yml"': !resolve $v .template
+output: {}
+stdout: |
+    test/overlays/aws-digital/123/dkp2/resources.yml:
+      id: 123
+      name: bla
+    test/overlays/aws-digital/321/dkp2/resources.yml:
+      id: 321
+      name: foo
