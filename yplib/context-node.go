@@ -121,7 +121,7 @@ func (n *ContextNode) ForEachNode(iter func(vars map[string]*ContextNode)) {
 	}
 }
 
-func (n *ContextNode) Reduce(kind yqlib.Kind, iter func(vars map[string]*ContextNode) (*yqlib.CandidateNode, error)) (*yqlib.CandidateNode, error) {
+func (n *ContextNode) Reduce(kind yqlib.Kind, vars map[string]*ContextNode, iter func(vars map[string]*ContextNode) (*yqlib.CandidateNode, error)) (*yqlib.CandidateNode, error) {
 	var initial *yqlib.CandidateNode
 	var update func(*yqlib.CandidateNode, *yqlib.CandidateNode) error
 
@@ -135,9 +135,8 @@ func (n *ContextNode) Reduce(kind yqlib.Kind, iter func(vars map[string]*Context
 	}
 
 	for _, v := range n.candidateNode.Content {
-		node, err := iter(map[string]*ContextNode{
-			"v": NewContextNode(v),
-		})
+		vars["v"] = NewContextNode(v)
+		node, err := iter(vars)
 		if err != nil {
 			return nil, err
 		}
