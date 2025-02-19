@@ -63,3 +63,7 @@ stdout: |
       c: 3
       d: 4
       e: 5
+    non-new:
+      a: "1"
+      b:
+        foo: bar

@@ -38,15 +38,14 @@ stdout: |
       probe:
         url: /override
         interval: 20s
-        timeout: 5s
     ---
     name: example 2
     backend:
+      host: override.com
       probe:
         url: /override
         interval: 30s
         timeout: 15s
-      host: example.com
       timeout: 1m
     ---
     backend:
