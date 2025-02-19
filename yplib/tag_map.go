@@ -25,7 +25,7 @@ func mapResolver(rc ResolveContext) (*yqlib.CandidateNode, error) {
 		tagNodes:      getTagNodes(partial),
 	}
 
-	nn, err := NewContextNode(data).Reduce(partial.Kind, func(vars map[string]*ContextNode) (*yqlib.CandidateNode, error) {
+	nn, err := NewContextNode(data).Reduce(partial.Kind, rc.Vars, func(vars map[string]*ContextNode) (*yqlib.CandidateNode, error) {
 		clone := partialNode.Clone()
 		err := clone.Resolve(rc.Ctx, vars, rc.Opts)
 		if err != nil {
