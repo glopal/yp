@@ -1,0 +1,6 @@
+input:
+    yp.yml: "--- #export\nitems:\n  - id: 123\n    name: bla\n!_ template:\n  id: !yq .id\n  name: !yq .name\n--- #out\n!map $ctx.items:\n    !_ <<: \n        !yq '$v.name + \".yml\"':\n            - !resolve $v $ctx.template"
+output:
+    bla.yml: |
+        id: 123
+        name: bla
